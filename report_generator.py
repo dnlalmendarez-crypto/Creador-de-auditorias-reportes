@@ -211,7 +211,7 @@ def _get_compliance_color(percentage_str: str) -> RGBColor:
 
 
 def _add_compliance_table(doc: Document, compliance_text: str):
-    """Render compliance table with color-coded percentages."""
+    """Render compliance table with COMPONENTE/CRITERIO grouped format and color-coded percentages."""
     lines = [l.strip() for l in compliance_text.strip().split("\n") if l.strip()]
     table_lines = [l for l in lines if "|" in l and "---" not in l]
 
@@ -231,31 +231,96 @@ def _add_compliance_table(doc: Document, compliance_text: str):
     table = doc.add_table(rows=len(rows_data), cols=num_cols)
     _set_table_style(table)
 
-    for i, row_data in enumerate(rows_data):
+    # ── Header row ────────────────────────────────────────────────────────────
+    header_row = table.rows[0]
+    for j, cell_text in enumerate(rows_data[0]):
+        if j >= num_cols:
+            break
+        cell = header_row.cells[j]
+        _set_cell_bg(cell, COLORS["table_header"])
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(cell_text)
+        _set_run_format(run, bold=True, size=9, color=COLORS["header_text"])
+
+    # ── Data rows ─────────────────────────────────────────────────────────────
+    for i in range(1, len(rows_data)):
+        row_data = rows_data[i]
         row = table.rows[i]
         for j, cell_text in enumerate(row_data):
             if j >= num_cols:
                 break
             cell = row.cells[j]
-            if i == 0:
-                _set_cell_bg(cell, COLORS["table_header"])
-                p = cell.paragraphs[0]
+            p = cell.paragraphs[0]
+
+            if j == 0:
+                # COMPONENTE column — dark background, bold white
+                _set_cell_bg(cell, COLORS["header_bg"])
                 run = p.add_run(cell_text)
-                _set_run_format(run, bold=True, size=10, color=COLORS["header_text"])
+                _set_run_format(run, bold=True, size=9, color=COLORS["header_text"])
+            elif j == 1:
+                # CRITERIO column — light alternating
+                if i % 2 == 0:
+                    _set_cell_bg(cell, COLORS["table_alt"])
+                run = p.add_run(cell_text)
+                _set_run_format(run, size=9)
             else:
-                p = cell.paragraphs[0]
-                # Check if this cell contains a percentage
+                # Period CUMPLIMIENTO columns — color coded
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 if "%" in cell_text:
                     color = _get_compliance_color(cell_text)
-                    bg = color
-                    _set_cell_bg(cell, bg)
+                    _set_cell_bg(cell, color)
                     run = p.add_run(cell_text)
-                    _set_run_format(run, bold=True, size=10, color=COLORS["header_text"])
+                    _set_run_format(run, bold=True, size=9, color=COLORS["header_text"])
+                elif cell_text.strip() == "-":
+                    if i % 2 == 0:
+                        _set_cell_bg(cell, COLORS["table_alt"])
+                    run = p.add_run(cell_text)
+                    _set_run_format(run, size=9, italic=True)
                 else:
                     if i % 2 == 0:
                         _set_cell_bg(cell, COLORS["table_alt"])
                     run = p.add_run(cell_text)
-                    _set_run_format(run, size=10)
+                    _set_run_format(run, size=9)
+
+    # ── Merge COMPONENTE cells vertically for same-component rows ─────────
+    if len(rows_data) > 1 and num_cols > 0:
+        comp_col = 0
+        i = 1
+        while i < len(rows_data):
+            comp_name = rows_data[i][comp_col] if comp_col < len(rows_data[i]) else ""
+            if not comp_name:
+                i += 1
+                continue
+            # Find consecutive rows with same component
+            j = i + 1
+            while j < len(rows_data):
+                next_comp = rows_data[j][comp_col] if comp_col < len(rows_data[j]) else ""
+                if next_comp == comp_name:
+                    j += 1
+                else:
+                    break
+            # Merge if more than one row
+            if j - i > 1:
+                start_cell = table.cell(i, comp_col)
+                end_cell = table.cell(j - 1, comp_col)
+                start_cell.merge(end_cell)
+                # Re-apply formatting to merged cell
+                _set_cell_bg(start_cell, COLORS["header_bg"])
+                p = start_cell.paragraphs[0]
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                # Set vertical alignment to center
+                tc = start_cell._tc
+                tcPr = tc.get_or_add_tcPr()
+                vAlign = OxmlElement("w:vAlign")
+                vAlign.set(qn("w:val"), "center")
+                tcPr.append(vAlign)
+                # Clear and re-add text
+                for run in p.runs:
+                    run.clear()
+                run = p.add_run(comp_name)
+                _set_run_format(run, bold=True, size=9, color=COLORS["header_text"])
+            i = j
 
     doc.add_paragraph()
 
@@ -326,12 +391,29 @@ def generate_report_docx(
     # ── COVER TABLE ────────────────────────────────────────────────────────────
     _add_cover_table(doc, doctor_name, doctor_code, period, specialty)
 
-    # ── ANÁLISIS CUANTITATIVO ─────────────────────────────────────────────────
+    # ── 1. RESUMEN EJECUTIVO ─────────────────────────────────────────────────
+    if report_sections.get("resumen_ejecutivo"):
+        _add_section_banner(doc, "RESUMEN EJECUTIVO")
+        _add_body_text(doc, report_sections["resumen_ejecutivo"])
+
+    # ── 2. CUADRO DE CUMPLIMIENTO ────────────────────────────────────────────
+    if report_sections.get("cumplimiento"):
+        _add_section_banner(doc, "CUADRO DE CUMPLIMIENTO POR CRITERIO")
+        _add_compliance_table(doc, report_sections["cumplimiento"])
+        _add_color_legend(doc)
+
+    # ── 3. COMENTARIO DE SEGUIMIENTO ─────────────────────────────────────────
+    if report_sections.get("seguimiento"):
+        _add_section_banner(doc, "COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERÍODOS")
+        _add_body_text(doc, report_sections["seguimiento"])
+
+    # ── 4. ANÁLISIS CUANTITATIVO ─────────────────────────────────────────────
     if report_sections.get("cuantitativo"):
+        doc.add_page_break()
         _add_section_banner(doc, "ANÁLISIS CUANTITATIVO")
         _add_quantitative_table(doc, report_sections["cuantitativo"])
 
-    # ── ANÁLISIS CUALITATIVO ──────────────────────────────────────────────────
+    # ── 5. ANÁLISIS CUALITATIVO ──────────────────────────────────────────────
     if report_sections.get("cualitativo") or report_sections.get("no_conformidades"):
         _add_section_banner(doc, "ANÁLISIS CUALITATIVO")
 
@@ -347,25 +429,6 @@ def generate_report_docx(
         if report_sections.get("eventos_riesgo"):
             _add_heading(doc, "Análisis de Eventos de Riesgo", level=2)
             _add_body_text(doc, report_sections["eventos_riesgo"])
-
-    # ── RESUMEN EJECUTIVO ─────────────────────────────────────────────────────
-    if report_sections.get("resumen_ejecutivo"):
-        doc.add_page_break()
-        _add_section_banner(doc, "RESUMEN EJECUTIVO")
-        _add_body_text(doc, report_sections["resumen_ejecutivo"])
-
-    # ── CUADRO DE CUMPLIMIENTO ────────────────────────────────────────────────
-    if report_sections.get("cumplimiento"):
-        _add_section_banner(doc, "REPORTE DE CUMPLIMIENTO POR CRITERIO")
-        _add_compliance_table(doc, report_sections["cumplimiento"])
-
-    # ── COLOR LEGEND ──────────────────────────────────────────────────────────
-    _add_color_legend(doc)
-
-    # ── COMENTARIO DE SEGUIMIENTO ─────────────────────────────────────────────
-    if report_sections.get("seguimiento"):
-        _add_section_banner(doc, "COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERÍODOS")
-        _add_body_text(doc, report_sections["seguimiento"])
 
     # ── FOOTER NOTE ───────────────────────────────────────────────────────────
     doc.add_paragraph()

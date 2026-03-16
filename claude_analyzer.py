@@ -32,6 +32,57 @@ PROTOCOLO DE VERIFICACIÓN CRUZADA:
 FORMATO DE SALIDA OBLIGATORIO - Sigue este formato exacto sin modificarlo:
 
 ---
+RESUMEN EJECUTIVO
+"Se evidencia un perfil de riesgo con afectación en los componentes de [top 3 componentes]. El criterio más afectado es [3 componentes con mayor cantidad de tipificaciones], debido a [hallazgo importante]. Se identificaron [X] No Conformidades en total; También se identificaron [Y] Eventos de Riesgo.
+
+Componentes y número de hallazgos:
+**ANAMNESIS**: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
+**DIAGNÓSTICO**: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
+**EXAMEN FÍSICO**: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
+**PRODUCTOS DE LA CONSULTA**: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo."
+
+CUADRO DE CUMPLIMIENTO POR CRITERIO
+[Genera la tabla en formato markdown EXACTAMENTE así, con COMPONENTE agrupando criterios:]
+
+| COMPONENTE | CRITERIO | [Período 1] CUMPLIMIENTO | [Período 2] CUMPLIMIENTO |
+|---|---|---|---|
+| ANAMNESIS | Motivo de Consulta | XX% | XX% |
+| ANAMNESIS | Signos Vitales | XX% | XX% |
+| ANAMNESIS | Talla y Peso | XX% | XX% |
+| ANAMNESIS | Antecedentes | XX% | XX% |
+| ANAMNESIS | Alergias | XX% | XX% |
+| ANAMNESIS | Transcripción Clínica | XX% | XX% |
+| ANAMNESIS | Presente Enfermedad | XX% | XX% |
+| EXAMEN FÍSICO | Examen Físico | XX% | XX% |
+| DIAGNÓSTICO | Apreciación Diagnóstica | XX% | XX% |
+| DIAGNÓSTICO | Diagnóstico Principal | XX% | XX% |
+| DIAGNÓSTICO | Diagnóstico Secundario | XX% | XX% |
+| DIAGNÓSTICO | Problema Activo | XX% | XX% |
+| PRODUCTOS DE LA CONSULTA | Prescripción – Indicación | XX% | XX% |
+| PRODUCTOS DE LA CONSULTA | Prescripción – Dosis | XX% | XX% |
+| PRODUCTOS DE LA CONSULTA | Laboratorios | XX% | XX% |
+| PRODUCTOS DE LA CONSULTA | Imágenes | XX% | XX% |
+| PRODUCTOS DE LA CONSULTA | Seguridad al Contraste | XX% | XX% |
+| PRODUCTOS DE LA CONSULTA | Referencia Interna | XX% | XX% |
+| PRODUCTOS DE LA CONSULTA | Referencia Externa | XX% | XX% |
+| PRODUCTOS DE LA CONSULTA | Constancia Médica | XX% | XX% |
+| PRODUCTOS DE LA CONSULTA | Recomendaciones | XX% | XX% |
+| PRODUCTOS DE LA CONSULTA | Seguimiento | XX% | XX% |
+
+REGLAS del cuadro de cumplimiento:
+- Usa EXACTAMENTE los porcentajes del archivo de gráficas. NO los inventes.
+- Si un criterio no aplica, usa "-" en lugar de porcentaje.
+- Incluye TODOS los períodos disponibles en columnas separadas.
+- La columna COMPONENTE debe repetir el nombre del componente en cada fila que le pertenezca.
+
+[COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERIODOS - solo si hay 2 o más periodos auditados]
+Formato del comentario de seguimiento:
+"Comentario de seguimiento y comparación de periodos (Fechas de periodos comparados):
+(Resumen de máximo 4 líneas comparando los criterios con la atención al usuario o impacto a la salud). Se han observado los siguientes hallazgos:
+Tendencia positiva: (únicamente los criterios con aumento en el porcentaje)
+Tendencia Negativa: (únicamente los criterios con disminución del porcentaje)
+Tendencia sostenida: (criterios sin variación entre periodos, énfasis en datos por debajo de 90%)"
+
 ANÁLISIS CUANTITATIVO
 [Tabla con columnas: ID de Consulta | Diagnóstico | No Conformidades | Eventos de Riesgo]
 
@@ -70,25 +121,6 @@ Evento de Riesgo Identificados: [N]:
 [Impacto en la atención]
 
 [siguiente criterio si aplica...]"
-
-RESUMEN EJECUTIVO
-"Se evidencia un perfil de riesgo con afectación en los componentes de [top 3 componentes]. El criterio más afectado es [3 componentes con mayor cantidad de tipificaciones], debido a [hallazgo importante]. Se identificaron [X] No Conformidades en total; También se identificaron [Y] Eventos de Riesgo.
-
-Componentes y número de hallazgos:
-**ANAMNESIS**: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
-**DIAGNÓSTICO**: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
-**EXAMEN FÍSICO**: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
-**PRODUCTOS DE LA CONSULTA**: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo."
-
-[CUADRO DE CUMPLIMIENTO POR CRITERIO - con datos exactos del archivo de gráficas, presenta el nombre del médico en el encabezado para verificar identidad]
-
-[COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERIODOS - solo si hay 2 o más periodos auditados]
-Formato del comentario de seguimiento:
-"Comentario de seguimiento y comparación de periodos (Fechas de periodos comparados):
-(Resumen de máximo 4 líneas comparando los criterios con la atención al usuario o impacto a la salud). Se han observado los siguientes hallazgos:
-Tendencia positiva: (únicamente los criterios con aumento en el porcentaje)
-Tendencia Negativa: (únicamente los criterios con disminución del porcentaje)
-Tendencia sostenida: (criterios sin variación entre periodos, énfasis en datos por debajo de 90%)"
 ---
 
 IMPORTANTE sobre el Resumen Ejecutivo:
