@@ -1,13 +1,16 @@
 """
 Creador de Auditorías y Reportes Médicos
 Main Streamlit application.
+Supports both local Excel upload and Google Sheets connection.
 """
 
 import streamlit as st
 import os
 import io
+import json
 import zipfile
 from pathlib import Path
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,6 +18,7 @@ load_dotenv()
 import data_loader as dl
 import claude_analyzer as ca
 import report_generator as rg
+from period_utils import generate_periods
 
 # ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -71,6 +75,10 @@ if "generated_reports" not in st.session_state:
     st.session_state.generated_reports = {}
 if "file_data" not in st.session_state:
     st.session_state.file_data = {}
+if "gsheets_connected" not in st.session_state:
+    st.session_state.gsheets_connected = False
+if "gsheets_data" not in st.session_state:
+    st.session_state.gsheets_data = {}
 
 # ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -100,39 +108,150 @@ with st.sidebar:
     selected_model = model_options[selected_model_label]
 
     st.markdown("---")
-    st.markdown("### 📁 Archivos de Referencia")
-    st.caption("Carga los archivos base para el análisis")
 
-    clasificacion_file = st.file_uploader(
-        "Clasificación de No Conformidades (.xlsx)",
-        type=["xlsx", "xls"],
-        key="clasificacion",
-        help="Archivo: Clasificación de no conformidades.XLSX",
+    # ─── DATA SOURCE SELECTOR ────────────────────────────────────────────────
+    st.markdown("### 📂 Origen de Datos")
+    data_source = st.radio(
+        "Selecciona el origen de los archivos:",
+        ["📤 Subir archivos Excel", "📊 Google Sheets"],
+        key="data_source",
+        help="Elige si deseas cargar archivos locales o conectar directamente a Google Sheets.",
     )
 
-    tipificaciones_file = st.file_uploader(
-        "Tipificaciones de Auditoría (.xlsx)",
-        type=["xlsx", "xls"],
-        key="tipificaciones",
-        help="Archivo: TIPIFICACIONES DE USO COMUN EN AUDITORIA MEDICA DE CALIDAD.XLSX",
-    )
+    clasificacion_file = None
+    tipificaciones_file = None
+    graficas_file = None
+    base_datos_file = None
+    gs_clasificacion_id = ""
+    gs_tipificaciones_id = ""
+    gs_graficas_id = ""
+    gs_base_datos_id = ""
 
-    st.markdown("---")
-    st.markdown("### 📊 Archivos de Datos")
+    if data_source == "📤 Subir archivos Excel":
+        # ─── EXCEL UPLOAD MODE ───────────────────────────────────────────────
+        st.markdown("### 📁 Archivos de Referencia")
+        st.caption("Carga los archivos base para el análisis")
 
-    graficas_file = st.file_uploader(
-        "Gráficas de Cumplimiento (.xlsx)",
-        type=["xlsx", "xls"],
-        key="graficas",
-        help="Archivo: 🕸️ Graficas de Cumplimiento 2026 || MEDGEN || DoctorSV",
-    )
+        clasificacion_file = st.file_uploader(
+            "Clasificación de No Conformidades (.xlsx)",
+            type=["xlsx", "xls"],
+            key="clasificacion",
+            help="Archivo: Clasificación de no conformidades.XLSX",
+        )
 
-    base_datos_file = st.file_uploader(
-        "Base de Datos x Cita (.xlsx)",
-        type=["xlsx", "xls"],
-        key="base_datos",
-        help="Archivo: 🛢️ Base de Datos x Cita 2026 || DoctorSv",
-    )
+        tipificaciones_file = st.file_uploader(
+            "Tipificaciones de Auditoría (.xlsx)",
+            type=["xlsx", "xls"],
+            key="tipificaciones",
+            help="Archivo: TIPIFICACIONES DE USO COMUN EN AUDITORIA MEDICA DE CALIDAD.XLSX",
+        )
+
+        st.markdown("---")
+        st.markdown("### 📊 Archivos de Datos")
+
+        graficas_file = st.file_uploader(
+            "Gráficas de Cumplimiento (.xlsx)",
+            type=["xlsx", "xls"],
+            key="graficas",
+            help="Archivo: Gráficas de Cumplimiento 2026",
+        )
+
+        base_datos_file = st.file_uploader(
+            "Base de Datos x Cita (.xlsx)",
+            type=["xlsx", "xls"],
+            key="base_datos",
+            help="Archivo: Base de Datos x Cita 2026",
+        )
+
+    else:
+        # ─── GOOGLE SHEETS MODE ─────────────────────────────────────────────
+        st.markdown("### 🔑 Credenciales de Google")
+        st.caption("Sube el archivo JSON de Service Account o configúralo en Secrets.")
+
+        # Try to load from st.secrets first
+        gcp_creds = None
+        try:
+            if "gcp_service_account" in st.secrets:
+                gcp_creds = dict(st.secrets["gcp_service_account"])
+        except Exception:
+            pass
+
+        if not gcp_creds:
+            creds_file = st.file_uploader(
+                "Service Account JSON",
+                type=["json"],
+                key="gcp_creds_file",
+                help="Archivo JSON de credenciales de Google Cloud Service Account.",
+            )
+            if creds_file:
+                try:
+                    gcp_creds = json.loads(creds_file.read())
+                    creds_file.seek(0)
+                except Exception as e:
+                    st.error(f"Error leyendo credenciales: {e}")
+        else:
+            st.success("Credenciales cargadas desde Secrets")
+
+        if gcp_creds:
+            st.session_state["gcp_creds"] = gcp_creds
+
+        st.markdown("---")
+        st.markdown("### 📋 URLs o IDs de Google Sheets")
+        st.caption("Pega el enlace completo o solo el ID de cada spreadsheet.")
+
+        gs_clasificacion_id = st.text_input(
+            "Clasificación de No Conformidades",
+            key="gs_clasificacion",
+            placeholder="https://docs.google.com/spreadsheets/d/... o ID",
+        )
+        gs_tipificaciones_id = st.text_input(
+            "Tipificaciones de Auditoría",
+            key="gs_tipificaciones",
+            placeholder="https://docs.google.com/spreadsheets/d/... o ID",
+        )
+        gs_graficas_id = st.text_input(
+            "Gráficas de Cumplimiento",
+            key="gs_graficas",
+            placeholder="https://docs.google.com/spreadsheets/d/... o ID",
+        )
+        gs_base_datos_id = st.text_input(
+            "Base de Datos x Cita",
+            key="gs_base_datos",
+            placeholder="https://docs.google.com/spreadsheets/d/... o ID",
+        )
+
+        if st.button("🔗 Conectar a Google Sheets"):
+            if not st.session_state.get("gcp_creds"):
+                st.error("Primero carga las credenciales de Service Account.")
+            else:
+                try:
+                    import google_sheets_loader as gsl
+                    client = gsl.connect_with_service_account(st.session_state["gcp_creds"])
+                    loaded = {}
+
+                    with st.spinner("Conectando a Google Sheets..."):
+                        if gs_clasificacion_id.strip():
+                            loaded["clasificacion"] = gsl.load_clasificacion_from_sheets(
+                                client, gs_clasificacion_id.strip()
+                            )
+                        if gs_tipificaciones_id.strip():
+                            loaded["tipificaciones"] = gsl.load_tipificaciones_from_sheets(
+                                client, gs_tipificaciones_id.strip()
+                            )
+                        if gs_graficas_id.strip():
+                            loaded["graficas"] = gsl.load_graficas_from_sheets(
+                                client, gs_graficas_id.strip()
+                            )
+                        if gs_base_datos_id.strip():
+                            loaded["base_datos"] = gsl.load_base_datos_from_sheets(
+                                client, gs_base_datos_id.strip()
+                            )
+
+                    st.session_state.gsheets_data = loaded
+                    st.session_state.gsheets_connected = True
+                    st.success(f"Conectado. Se cargaron {len(loaded)} archivo(s) desde Google Sheets.")
+                except Exception as e:
+                    st.error(f"Error conectando a Google Sheets: {e}")
 
     st.markdown("---")
     st.markdown("### 🎨 Leyenda de Colores")
@@ -142,27 +261,12 @@ with st.sidebar:
     st.markdown('<span class="status-red">● <85%: Oportunidad de Mejora</span>', unsafe_allow_html=True)
 
 
-# ─── LOAD & CACHE DATA ────────────────────────────────────────────────────────
-def load_uploaded_excel(uploaded_file, loader_fn):
-    """Load an uploaded Streamlit file with a loader function."""
-    if uploaded_file is None:
-        return None
-    import tempfile, os
-    suffix = Path(uploaded_file.name).suffix
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(uploaded_file.read())
-        tmp_path = tmp.name
-    result = loader_fn(tmp_path)
-    os.unlink(tmp_path)
-    uploaded_file.seek(0)
-    return result
-
-
+# ─── LOAD & CACHE DATA (Excel mode) ─────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def get_file_data(_clasificacion_key, _tipificaciones_key, _graficas_key, _base_datos_key,
                   clasificacion_bytes, tipificaciones_bytes, graficas_bytes, base_datos_bytes):
     """Cache loaded Excel data keyed by file content hashes."""
-    import tempfile, os
+    import tempfile
 
     def bytes_to_df(b, loader_fn):
         if b is None:
@@ -190,25 +294,56 @@ def get_bytes(f):
     return b
 
 
+# ─── PERIOD GENERATION ───────────────────────────────────────────────────────
+current_year = datetime.now().year
+available_years = list(range(current_year - 1, current_year + 2))
+
+
 # ─── MAIN CONTENT ─────────────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["📋 Generar Reportes", "📄 Ver Reportes Generados", "ℹ️ Ayuda"])
 
 with tab1:
-    st.markdown("### 👨‍⚕️ Configuración de Médicos y Período")
+    st.markdown("### 📅 Período de Auditoría")
 
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        period_input = st.text_input(
+    col_year, col_period = st.columns([1, 3])
+    with col_year:
+        selected_year = st.selectbox("Año", available_years, index=available_years.index(current_year))
+
+    periods = generate_periods(selected_year)
+    period_labels = [p["label"] for p in periods]
+
+    # Default to a recent period based on current date
+    default_idx = 0
+    now = datetime.now()
+    if selected_year == now.year:
+        month_idx = (now.month - 1) * 2
+        if now.day > 15:
+            month_idx += 1
+        default_idx = min(month_idx, len(periods) - 1)
+
+    with col_period:
+        selected_period_label = st.selectbox(
             "Período de Auditoría",
-            placeholder="Ej: 01 al 15 de febrero 2026",
-            help="Ingresa el período exactamente como aparece en los archivos",
+            period_labels,
+            index=default_idx,
+            help="Selecciona el período quincenal a auditar",
         )
-    with col2:
-        specialty_input = st.text_input(
-            "Especialidad",
-            value="Medicina General",
-            help="Especialidad médica para buscar en la hoja correspondiente",
-        )
+
+    # Get selected period info
+    selected_period = next(p for p in periods if p["label"] == selected_period_label)
+    period_input = selected_period["short_label"]
+
+    st.info(f"📅 Período seleccionado: **{period_input}**")
+
+    st.markdown("---")
+
+    st.markdown("### 👨‍⚕️ Configuración de Médicos y Especialidad")
+
+    specialty_input = st.text_input(
+        "Especialidad",
+        value="Medicina General",
+        help="Especialidad médica para buscar en la hoja correspondiente",
+    )
 
     st.markdown("#### Médicos a Auditar")
     st.caption("Agrega uno o más médicos. El código debe coincidir exactamente con el archivo de cumplimiento.")
@@ -251,33 +386,46 @@ with tab1:
 
     # Validate inputs
     valid_doctors = [d for d in st.session_state.doctors if d["name"].strip() and d["code"].strip()]
-    files_loaded = any([graficas_file, base_datos_file])
+
+    # Determine if data is available
+    using_gsheets = data_source == "📊 Google Sheets"
+    if using_gsheets:
+        files_loaded = st.session_state.gsheets_connected and bool(st.session_state.gsheets_data)
+    else:
+        files_loaded = any([graficas_file, base_datos_file])
 
     if not api_key:
         st.warning("⚠️ Ingresa tu API Key de Anthropic en el panel lateral para continuar.")
-    elif not period_input:
-        st.info("ℹ️ Ingresa el período de auditoría para continuar.")
     elif not valid_doctors:
         st.info("ℹ️ Agrega al menos un médico con nombre y código.")
     elif not files_loaded:
-        st.warning("⚠️ Carga al menos los archivos de Gráficas de Cumplimiento y Base de Datos.")
+        if using_gsheets:
+            st.warning("⚠️ Conecta a Google Sheets primero usando el botón en el panel lateral.")
+        else:
+            st.warning("⚠️ Carga al menos los archivos de Gráficas de Cumplimiento y Base de Datos.")
     else:
         st.success(f"✅ Listo para generar {len(valid_doctors)} reporte(s) para el período: **{period_input}**")
 
         if st.button("🚀 Generar Reportes", type="primary", use_container_width=True):
-            # Load data
-            with st.spinner("Cargando archivos..."):
-                file_cache = get_file_data(
-                    id(clasificacion_file), id(tipificaciones_file),
-                    id(graficas_file), id(base_datos_file),
-                    get_bytes(clasificacion_file), get_bytes(tipificaciones_file),
-                    get_bytes(graficas_file), get_bytes(base_datos_file),
-                )
-
-            graficas_data = file_cache.get("graficas")
-            base_datos_data = file_cache.get("base_datos")
-            clasificacion_df = file_cache.get("clasificacion")
-            tipificaciones_df = file_cache.get("tipificaciones")
+            # Load data based on source
+            if using_gsheets:
+                gs_data = st.session_state.gsheets_data
+                graficas_data = gs_data.get("graficas")
+                base_datos_data = gs_data.get("base_datos")
+                clasificacion_df = gs_data.get("clasificacion")
+                tipificaciones_df = gs_data.get("tipificaciones")
+            else:
+                with st.spinner("Cargando archivos..."):
+                    file_cache = get_file_data(
+                        id(clasificacion_file), id(tipificaciones_file),
+                        id(graficas_file), id(base_datos_file),
+                        get_bytes(clasificacion_file), get_bytes(tipificaciones_file),
+                        get_bytes(graficas_file), get_bytes(base_datos_file),
+                    )
+                graficas_data = file_cache.get("graficas")
+                base_datos_data = file_cache.get("base_datos")
+                clasificacion_df = file_cache.get("clasificacion")
+                tipificaciones_df = file_cache.get("tipificaciones")
 
             # Build reference text
             clasificacion_text = (
@@ -327,7 +475,6 @@ with tab1:
                         graficas_data, doc_name, doc_code, period_input
                     )
                     if compliance_results:
-                        import pandas as pd
                         parts = []
                         for sheet, result in compliance_results.items():
                             rows = result.get("rows")
@@ -345,7 +492,6 @@ with tab1:
                 def stream_cb(chunk):
                     report_text_parts.append(chunk)
                     current = "".join(report_text_parts)
-                    # Show live preview using markdown (avoids key conflicts)
                     report_placeholder.markdown(
                         f"**Vista previa del análisis:**\n\n```\n{current[-2000:]}\n```"
                     )
@@ -461,6 +607,37 @@ with tab3:
     st.markdown("""
     ### ℹ️ Guía de Uso
 
+    #### Origen de Datos
+
+    La aplicación soporta **dos modos** de carga de datos:
+
+    | Modo | Descripción |
+    |------|-------------|
+    | **📤 Subir archivos Excel** | Carga archivos .xlsx/.xls desde tu computadora |
+    | **📊 Google Sheets** | Conecta directamente a Google Sheets con Service Account |
+
+    #### Configuración de Google Sheets
+
+    Para usar Google Sheets necesitas:
+    1. Crear un **Service Account** en Google Cloud Console
+    2. Habilitar la **Google Sheets API** y **Google Drive API**
+    3. Descargar el archivo JSON de credenciales
+    4. **Compartir** cada spreadsheet con el email del Service Account (permisos de lectura)
+    5. Pegar el enlace o ID de cada spreadsheet en el panel lateral
+
+    En Streamlit Cloud, puedes configurar las credenciales en **Settings > Secrets**:
+    ```toml
+    [gcp_service_account]
+    type = "service_account"
+    project_id = "tu-proyecto"
+    private_key_id = "..."
+    private_key = "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
+    client_email = "...@...iam.gserviceaccount.com"
+    client_id = "..."
+    auth_uri = "https://accounts.google.com/o/oauth2/auth"
+    token_uri = "https://oauth2.googleapis.com/token"
+    ```
+
     #### Archivos Requeridos
 
     | Archivo | Descripción |
@@ -470,22 +647,22 @@ with tab3:
     | **Gráficas de Cumplimiento** | Porcentajes de cumplimiento por criterio por médico y período |
     | **Base de Datos x Cita** | Registro de consultas auditadas con IDs, diagnósticos y hallazgos |
 
+    #### Períodos de Auditoría
+
+    Los períodos se generan automáticamente de forma quincenal:
+    - **Periodo 1:** 01 al 15 de enero
+    - **Periodo 2:** 16 al 31 de enero
+    - **Periodo 3:** 01 al 15 de febrero
+    - ...y así sucesivamente hasta diciembre
+
     #### Flujo de Trabajo
 
-    1. **Carga los archivos** en el panel lateral izquierdo
-    2. **Configura el período** y la especialidad
-    3. **Agrega los médicos** con su nombre y código (COD) exacto
-    4. **Haz clic en "Generar Reportes"**
-    5. **Descarga** los archivos `.docx` generados individualmente o en ZIP
-
-    #### Estructura del Reporte Generado
-
-    El reporte incluye:
-    - **Análisis Cuantitativo**: Tabla de IDs con diagnósticos y conteo de hallazgos
-    - **Análisis Cualitativo**: No Conformidades y Eventos de Riesgo por componente y criterio
-    - **Resumen Ejecutivo**: Para Alta Gerencia (máximo media página)
-    - **Cuadro de Cumplimiento**: Porcentajes exactos del archivo de gráficas
-    - **Comentario de Seguimiento**: Comparación de períodos (si aplica)
+    1. **Selecciona el origen** de datos (Excel o Google Sheets)
+    2. **Carga los archivos** o conecta a Google Sheets
+    3. **Selecciona el año y período** quincenal
+    4. **Agrega los médicos** con su nombre y código (COD) exacto
+    5. **Haz clic en "Generar Reportes"**
+    6. **Descarga** los archivos `.docx` generados individualmente o en ZIP
 
     #### Categorías de Color
 
