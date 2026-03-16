@@ -205,6 +205,21 @@ def find_doctor_consultations(
                     break
 
         if matched is not None:
+            # Try to filter by period if provided
+            if period and matched is not None and not matched.empty:
+                period_lower = period.lower().strip()
+                period_matched = None
+                for col in list(matched.columns):
+                    col_str = str(col).lower()
+                    if any(kw in col_str for kw in ["periodo", "period", "fecha", "date", "quincena"]):
+                        mask = matched[col].astype(str).str.lower().str.contains(
+                            period_lower, na=False, regex=False
+                        )
+                        if mask.any():
+                            period_matched = matched[mask].copy()
+                            break
+                if period_matched is not None and not period_matched.empty:
+                    matched = period_matched
             frames.append(matched)
 
     if frames:
@@ -280,7 +295,7 @@ def get_clasificacion_map(df: pd.DataFrame) -> dict:
     return clasificacion
 
 
-def dataframe_to_markdown_table(df: pd.DataFrame, max_rows: int = 50) -> str:
+def dataframe_to_markdown_table(df: pd.DataFrame, max_rows: int = 200) -> str:
     """Convert a DataFrame to a markdown table string for Claude."""
     if df is None or df.empty:
         return "(tabla vacía)"

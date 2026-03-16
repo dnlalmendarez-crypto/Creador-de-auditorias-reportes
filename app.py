@@ -336,13 +336,9 @@ with tab1:
                 def stream_cb(chunk):
                     report_text_parts.append(chunk)
                     current = "".join(report_text_parts)
-                    # Show live preview
-                    report_placeholder.text_area(
-                        "Vista previa del análisis",
-                        value=current,
-                        height=300,
-                        key=f"preview_{doc_code}_{len(current)}",
-                        disabled=True,
+                    # Show live preview using markdown (avoids key conflicts)
+                    report_placeholder.markdown(
+                        f"**Vista previa del análisis:**\n\n```\n{current[-2000:]}\n```"
                     )
 
                 try:
