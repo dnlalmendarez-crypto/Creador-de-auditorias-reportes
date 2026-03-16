@@ -287,19 +287,26 @@ def generate_report_docx(
     period: str,
     report_sections: dict,
     specialty: str = "Medicina General",
+    template_bytes: bytes | None = None,
 ) -> bytes:
     """
     Generate a formatted Word document from parsed report sections.
+    If template_bytes is provided, uses the .docx template as a base
+    (preserving its styles, headers, footers, etc.).
     Returns the document as bytes.
     """
-    doc = Document()
+    if template_bytes:
+        doc = Document(io.BytesIO(template_bytes))
+    else:
+        doc = Document()
 
-    # Page margins
-    section = doc.sections[0]
-    section.left_margin = Cm(2.5)
-    section.right_margin = Cm(2.5)
-    section.top_margin = Cm(2.0)
-    section.bottom_margin = Cm(2.0)
+    # Page margins (only set on blank docs to not override template)
+    if not template_bytes:
+        section = doc.sections[0]
+        section.left_margin = Cm(2.5)
+        section.right_margin = Cm(2.5)
+        section.top_margin = Cm(2.0)
+        section.bottom_margin = Cm(2.0)
 
     # ── COVER TABLE ────────────────────────────────────────────────────────────
     _add_cover_table(doc, doctor_name, doctor_code, period, specialty)
@@ -386,10 +393,12 @@ def generate_full_report_from_text(
     period: str,
     full_report_text: str,
     specialty: str = "Medicina General",
+    template_bytes: bytes | None = None,
 ) -> bytes:
     """
     Generate a report docx from raw Claude output text.
     Parses sections automatically.
+    If template_bytes is provided, uses the .docx as a base template.
     """
     from claude_analyzer import parse_report_sections
     sections = parse_report_sections(full_report_text)
@@ -399,4 +408,5 @@ def generate_full_report_from_text(
         period=period,
         report_sections=sections,
         specialty=specialty,
+        template_bytes=template_bytes,
     )

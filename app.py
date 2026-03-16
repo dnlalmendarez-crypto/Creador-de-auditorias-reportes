@@ -79,6 +79,8 @@ if "gsheets_connected" not in st.session_state:
     st.session_state.gsheets_connected = False
 if "gsheets_data" not in st.session_state:
     st.session_state.gsheets_data = {}
+if "template_bytes" not in st.session_state:
+    st.session_state.template_bytes = None
 
 # ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -252,6 +254,32 @@ with st.sidebar:
                     st.success(f"Conectado. Se cargaron {len(loaded)} archivo(s) desde Google Sheets.")
                 except Exception as e:
                     st.error(f"Error conectando a Google Sheets: {e}")
+
+    st.markdown("---")
+    st.markdown("### 📄 Plantilla Base (Opcional)")
+    st.caption("Sube un archivo .docx que servirá como base para el reporte. Se conservarán estilos, encabezados y pies de página.")
+    template_file = st.file_uploader(
+        "Archivo de plantilla (.docx)",
+        type=["docx"],
+        key="template_upload",
+        help="Sube un archivo Word (.docx) que se usará como plantilla base para generar los reportes.",
+    )
+    if template_file:
+        st.session_state.template_bytes = template_file.read()
+        template_file.seek(0)
+        st.success("Plantilla cargada correctamente.")
+    else:
+        st.session_state.template_bytes = None
+
+    st.markdown("---")
+    st.markdown("### ☁️ Subir a Google Drive (Opcional)")
+    st.caption("Sube los reportes generados directamente a una carpeta de Drive.")
+    drive_folder_input = st.text_input(
+        "Carpeta de destino en Drive",
+        key="drive_folder",
+        placeholder="https://drive.google.com/drive/folders/... o ID",
+        help="Pega la URL o ID de la carpeta de Google Drive donde se subirán los reportes.",
+    )
 
     st.markdown("---")
     st.markdown("### 🎨 Leyenda de Colores")
@@ -519,6 +547,7 @@ with tab1:
                         period=period_input,
                         full_report_text=full_report,
                         specialty=specialty_input,
+                        template_bytes=st.session_state.template_bytes,
                     )
 
                     # Store in session
@@ -543,6 +572,23 @@ with tab1:
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         key=f"dl_{doc_code}",
                     )
+
+                    # Upload to Google Drive if configured
+                    if drive_folder_input.strip() and st.session_state.get("gcp_creds"):
+                        if st.button(f"☁️ Subir a Drive - {doc_name}", key=f"drive_{doc_code}"):
+                            try:
+                                import google_sheets_loader as gsl
+                                folder_id = gsl.extract_folder_id(drive_folder_input.strip())
+                                with st.spinner("Subiendo a Google Drive..."):
+                                    link = gsl.upload_file_to_drive(
+                                        credentials_info=st.session_state["gcp_creds"],
+                                        file_bytes=docx_bytes,
+                                        filename=filename,
+                                        folder_id=folder_id,
+                                    )
+                                st.success(f"Subido a Drive: [Abrir archivo]({link})")
+                            except Exception as drive_err:
+                                st.error(f"Error subiendo a Drive: {drive_err}")
 
                 except Exception as e:
                     progress.progress(0)
@@ -597,6 +643,22 @@ with tab2:
                     st.markdown(f"**Médico:** {rdata['name']}")
                     st.markdown(f"**Código:** {code}")
                     st.markdown(f"**Período:** {rdata['period']}")
+
+                    if drive_folder_input.strip() and st.session_state.get("gcp_creds"):
+                        if st.button(f"☁️ Subir a Drive", key=f"drive2_{code}"):
+                            try:
+                                import google_sheets_loader as gsl
+                                folder_id = gsl.extract_folder_id(drive_folder_input.strip())
+                                with st.spinner("Subiendo a Google Drive..."):
+                                    link = gsl.upload_file_to_drive(
+                                        credentials_info=st.session_state["gcp_creds"],
+                                        file_bytes=rdata["docx_bytes"],
+                                        filename=rdata["filename"],
+                                        folder_id=folder_id,
+                                    )
+                                st.success(f"[Abrir en Drive]({link})")
+                            except Exception as drive_err:
+                                st.error(f"Error: {drive_err}")
 
         if st.button("🗑️ Limpiar Reportes de Sesión", type="secondary"):
             st.session_state.generated_reports = {}
@@ -655,14 +717,31 @@ with tab3:
     - **Periodo 3:** 01 al 15 de febrero
     - ...y así sucesivamente hasta diciembre
 
+    #### Plantilla Base (Opcional)
+
+    Puedes subir un archivo `.docx` como plantilla base:
+    - Se conservan **estilos, encabezados, pies de página y márgenes** del template
+    - El contenido del reporte se agrega al final del documento plantilla
+    - Útil para mantener el formato corporativo o institucional
+
+    #### Subir a Google Drive (Opcional)
+
+    Puedes subir los reportes generados directamente a una carpeta de Google Drive:
+    1. Asegúrate de tener las **credenciales de Service Account** cargadas
+    2. El Service Account necesita permisos de **Google Drive API** con acceso de escritura
+    3. **Comparte la carpeta de destino** con el email del Service Account (permisos de Editor)
+    4. Pega la URL o ID de la carpeta en el panel lateral
+
     #### Flujo de Trabajo
 
     1. **Selecciona el origen** de datos (Excel o Google Sheets)
     2. **Carga los archivos** o conecta a Google Sheets
-    3. **Selecciona el año y período** quincenal
-    4. **Agrega los médicos** con su nombre y código (COD) exacto
-    5. **Haz clic en "Generar Reportes"**
-    6. **Descarga** los archivos `.docx` generados individualmente o en ZIP
+    3. **(Opcional)** Sube una plantilla `.docx` base
+    4. **(Opcional)** Configura la carpeta de Google Drive
+    5. **Selecciona el año y período** quincenal
+    6. **Agrega los médicos** con su nombre y código (COD) exacto
+    7. **Haz clic en "Generar Reportes"**
+    8. **Descarga** los archivos `.docx` o súbelos directamente a Drive
 
     #### Categorías de Color
 
