@@ -104,6 +104,19 @@ def find_doctor_compliance(
         if df is None or df.empty:
             continue
 
+        # Deduplicate column names to avoid DataFrame returns on df[col]
+        df = df.copy()
+        seen = {}
+        new_cols = []
+        for c in df.columns:
+            if c in seen:
+                seen[c] += 1
+                new_cols.append(f"{c}_{seen[c]}")
+            else:
+                seen[c] = 0
+                new_cols.append(c)
+        df.columns = new_cols
+
         # Try to find columns that might be doctor name, code, period
         df_str = df.astype(str)
         cols = list(df.columns)
@@ -176,6 +189,19 @@ def find_doctor_consultations(
     for sheet_name, df in base_datos.items():
         if df is None or df.empty:
             continue
+
+        # Deduplicate column names to avoid DataFrame returns on df[col]
+        df = df.copy()
+        seen = {}
+        new_cols = []
+        for c in df.columns:
+            if c in seen:
+                seen[c] += 1
+                new_cols.append(f"{c}_{seen[c]}")
+            else:
+                seen[c] = 0
+                new_cols.append(c)
+        df.columns = new_cols
 
         df_str = df.astype(str)
         cols = list(df.columns)
