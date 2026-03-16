@@ -37,6 +37,14 @@ COLORS = {
 FONT_NAME = "Calibri"
 
 
+def _set_table_style(table, style_name="Table Grid"):
+    """Safely set a table style, falling back to no style if not available."""
+    try:
+        table.style = style_name
+    except KeyError:
+        pass
+
+
 def _set_cell_bg(cell, rgb: RGBColor):
     """Set background color of a table cell."""
     tc = cell._tc
@@ -77,7 +85,7 @@ def _add_heading(doc: Document, text: str, level: int = 1):
 def _add_cover_table(doc: Document, doctor_name: str, doctor_code: str, period: str, specialty: str = "Medicina General"):
     """Add the report header/cover table."""
     table = doc.add_table(rows=4, cols=2)
-    table.style = "Table Grid"
+    _set_table_style(table)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
     # Row 0: Title
@@ -161,7 +169,7 @@ def _add_quantitative_table(doc: Document, table_text: str):
 
     num_cols = max(len(r) for r in rows_data)
     table = doc.add_table(rows=len(rows_data), cols=num_cols)
-    table.style = "Table Grid"
+    _set_table_style(table)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
     for i, row_data in enumerate(rows_data):
@@ -221,7 +229,7 @@ def _add_compliance_table(doc: Document, compliance_text: str):
 
     num_cols = max(len(r) for r in rows_data)
     table = doc.add_table(rows=len(rows_data), cols=num_cols)
-    table.style = "Table Grid"
+    _set_table_style(table)
 
     for i, row_data in enumerate(rows_data):
         row = table.rows[i]
