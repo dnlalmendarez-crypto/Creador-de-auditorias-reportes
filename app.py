@@ -76,11 +76,20 @@ if "file_data" not in st.session_state:
 with st.sidebar:
     st.markdown("### ⚙️ Configuración")
 
+    # Read API key from: st.secrets (Streamlit Cloud) > .env > manual input
+    default_key = ""
+    try:
+        default_key = st.secrets.get("ANTHROPIC_API_KEY", "")
+    except Exception:
+        pass
+    if not default_key:
+        default_key = os.environ.get("ANTHROPIC_API_KEY", "")
+
     api_key = st.text_input(
         "API Key de Anthropic",
-        value=os.environ.get("ANTHROPIC_API_KEY", ""),
+        value=default_key,
         type="password",
-        help="Ingresa tu API Key de Anthropic Claude",
+        help="Ingresa tu API Key de Anthropic Claude. En Streamlit Cloud se lee automáticamente de Secrets.",
     )
 
     model_options = {
