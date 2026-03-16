@@ -1,0 +1,17 @@
+.env
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+build/
+.DS_Store
+*.xlsx
+*.xls
+*.docx
+!formato_de_informe_template.docx
+*.tmp
+.streamlit/secrets.toml
