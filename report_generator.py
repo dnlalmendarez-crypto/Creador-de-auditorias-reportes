@@ -305,6 +305,13 @@ def generate_report_docx(
     """
     if template_bytes:
         doc = Document(io.BytesIO(template_bytes))
+        # Remove all existing body content from the template, keeping only
+        # styles, headers, footers, and page setup as format reference.
+        body = doc.element.body
+        for child in list(body):
+            if child.tag.endswith("}sectPr"):
+                continue  # preserve section properties (margins, headers, footers)
+            body.remove(child)
     else:
         doc = Document()
 
