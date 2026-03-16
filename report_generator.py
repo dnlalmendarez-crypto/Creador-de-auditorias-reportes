@@ -131,7 +131,7 @@ def _add_section_banner(doc: Document, title: str):
     # Add shading via XML
     pPr = para._p.get_or_add_pPr()
     shd = OxmlElement("w:shd")
-    hex_color = f"{COLORS['section_bg'].red:02X}{COLORS['section_bg'].green:02X}{COLORS['section_bg'].blue:02X}"
+    hex_color = f"{COLORS['section_bg'][0]:02X}{COLORS['section_bg'][1]:02X}{COLORS['section_bg'][2]:02X}"
     shd.set(qn("w:val"), "clear")
     shd.set(qn("w:color"), "auto")
     shd.set(qn("w:fill"), hex_color)
