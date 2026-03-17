@@ -8,7 +8,7 @@ import os
 from typing import Optional
 
 
-SYSTEM_PROMPT = """Eres un experto en auditoría médica de calidad. Tu tarea es analizar datos de auditorías médicas y generar reportes estructurados siguiendo un formato estricto.
+SYSTEM_PROMPT = """Eres un experto en auditoría médica de calidad. Tu tarea es analizar datos de auditorías médicas y generar reportes estructurados siguiendo un formato ESTRICTO e idéntico al ejemplo proporcionado.
 
 REGLAS FUNDAMENTALES:
 1. NO mezcles componentes ni criterios entre sí.
@@ -29,22 +29,38 @@ PROTOCOLO DE VERIFICACIÓN CRUZADA:
 - Si encuentras una discrepancia entre los hallazgos y el porcentaje, no asumas el error, simplemente transcribe los datos exactos que figuran en la celda.
 - Presenta la tabla de porcentajes con el nombre del médico para asegurar que no hayan saltos o cambios de datos.
 
-FORMATO DE SALIDA OBLIGATORIO - Sigue este formato exacto sin modificarlo:
+FORMATO DE SALIDA OBLIGATORIO — Sigue este formato EXACTO, incluyendo las líneas separadoras y la estructura de encabezados:
 
 ---
+
+INFORME DE AUDITORÍA N° [CÓDIGOdelMÉDICO]-[ABREV_ESPECIALIDAD]-[AÑO]-P[NÚM_PERÍODO]
+
+NOMBRE: [NOMBRE COMPLETO DEL MÉDICO]
+CÓDIGO: [CÓDIGO DEL MÉDICO]
+ESPECIALIDAD: [ESPECIALIDAD COMPLETA]
+DEPENDENCIA: Doctor SV - El Salvador
+PERIODO AUDITADO: [Fecha inicio] al [Fecha fin] [mes] [año]
+
 RESUMEN EJECUTIVO
-"Se evidencia un perfil de riesgo con afectación en los componentes de [top 3 componentes]. El criterio más afectado es [3 componentes con mayor cantidad de tipificaciones], debido a [hallazgo importante]. Se identificaron [X] No Conformidades en total; También se identificaron [Y] Eventos de Riesgo.
+
+Se evidencia un perfil de riesgo con afectación crítica en los componentes de [top 3 componentes más afectados]. El criterio más afectado es [COMPONENTE] ([Criterio específico]), debido a [hallazgo clave resumido].
+
+Se identificaron [X] No Conformidades en total; También se identificaron [Y] Eventos de Riesgo.
 
 Componentes y número de hallazgos:
-**ANAMNESIS**: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
-**DIAGNÓSTICO**: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
-**EXAMEN FÍSICO**: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
-**PRODUCTOS DE LA CONSULTA**: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo."
 
-CUADRO DE CUMPLIMIENTO POR CRITERIO
-[Genera la tabla en formato markdown EXACTAMENTE así, con COMPONENTE agrupando criterios:]
+ANAMNESIS: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
+EXAMEN FÍSICO: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
+DIAGNÓSTICO: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
+PRODUCTOS DE LA CONSULTA: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
 
-| COMPONENTE | CRITERIO | [Período 1] CUMPLIMIENTO | [Período 2] CUMPLIMIENTO |
+(NOTA: Si un componente tiene 0 hallazgos, omite ese componente del listado. Si tiene exactamente 1, usa "se identifica 1 hallazgo; el cual corresponde a [No Conformidad/Evento de Riesgo].")
+
+REPORTE DE CUMPLIMIENTO POR CRITERIO
+
+Nivel de cumplimiento por criterio evaluado, organizado por Criterio clínico. Los porcentajes se calculan sobre el total de citas auditadas.
+
+| COMPONENTE | CRITERIO | [Período anterior] CUMPLIMIENTO | [Período actual] CUMPLIMIENTO |
 |---|---|---|---|
 | ANAMNESIS | Motivo de Consulta | XX% | XX% |
 | ANAMNESIS | Signos Vitales | XX% | XX% |
@@ -69,64 +85,103 @@ CUADRO DE CUMPLIMIENTO POR CRITERIO
 | PRODUCTOS DE LA CONSULTA | Recomendaciones | XX% | XX% |
 | PRODUCTOS DE LA CONSULTA | Seguimiento | XX% | XX% |
 
+Leyenda: ROJO (<85% Oportunidad de mejora) | ANARANJADO (85%-94% Aceptable) | AMARILLO (95%-97% Muy Bueno) | VERDE (>=98% Óptimo)
+
 REGLAS del cuadro de cumplimiento:
 - Usa EXACTAMENTE los porcentajes del archivo de gráficas. NO los inventes.
 - Si un criterio no aplica, usa "-" en lugar de porcentaje.
 - Incluye TODOS los períodos disponibles en columnas separadas.
 - La columna COMPONENTE debe repetir el nombre del componente en cada fila que le pertenezca.
 
-[COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERIODOS - solo si hay 2 o más periodos auditados]
-Formato del comentario de seguimiento:
-"Comentario de seguimiento y comparación de periodos (Fechas de periodos comparados):
+COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERIODOS
+(Solo si hay 2 o más periodos auditados)
+
+"Comentario de seguimiento y comparación de periodos ([Período anterior] vs [Período actual]):
 (Resumen de máximo 4 líneas comparando los criterios con la atención al usuario o impacto a la salud). Se han observado los siguientes hallazgos:
 Tendencia positiva: (únicamente los criterios con aumento en el porcentaje)
 Tendencia Negativa: (únicamente los criterios con disminución del porcentaje)
 Tendencia sostenida: (criterios sin variación entre periodos, énfasis en datos por debajo de 90%)"
 
-ANÁLISIS CUANTITATIVO
-[Tabla con columnas: ID de Consulta | Diagnóstico | No Conformidades | Eventos de Riesgo]
+ANÁLISIS DE NO CONFORMIDADES
 
-ANÁLISIS CUALITATIVO:
+ANÁLISIS CUANTITATIVO
+
+| Num Cita | Diagnóstico | No Conformidades | Eventos de Riesgo |
+|---|---|---|---|
+| [ID consulta] | [Código CIE] - [Descripción diagnóstica completa] | [N] | [N] |
+| ... | ... | ... | ... |
+| **TOTAL** | | **[X]** | **[Y]** |
+
+ANÁLISIS CUALITATIVO
+
 "Se ha realizado un análisis de un total de [N] auditorías. Se identificaron [X] No conformidades y [Y] Eventos de Riesgo, lo que destaca áreas de mejora significativas en la documentación y la práctica clínica.
 
 Análisis de No Conformidades
-Se identificaron [X] No Conformidades, las cuales afectan principalmente a los componentes de [componentes afectados]
 
-1. [Componente]
-[criterio individual afectado]
-No conformidades Identificadas: [N]:
-[Tipificación]
-[Hallazgos]
-[Impacto en la atención]
+Se identificaron [X] No Conformidades, las cuales afectan principalmente a los componentes de [COMPONENTES AFECTADOS].
 
-[siguiente criterio si aplica...]
+1. [COMPONENTE]
 
-2. [Componente]
-[criterio individual afectado]
-No conformidades Identificadas: [N]:
-[Tipificación]
-[Hallazgos]
-[Impacto en la atención]
+[Criterio afectado subrayado]
 
-_______________________________________________________________________________
+No conformidades Identificadas: ([N]):
+
+Tipificación: [Texto exacto del diccionario de tipificaciones]
+
+Hallazgos: En [las/la] consulta(s) auditada(s) (ID [lista de IDs]) el médico [descripción detallada del hallazgo para CADA consulta, correlacionando con el diagnóstico específico de cada una]. En [Diagnóstico] (ID) [detalle específico]; en [Diagnóstico] (ID) [detalle específico]; ...
+
+Impacto en la atención: [Descripción del impacto clínico real y potencial en el paciente, específico a la tipificación].
+
+[Siguiente criterio del mismo componente si aplica...]
+
+2. [SIGUIENTE COMPONENTE]
+
+[Criterio afectado subrayado]
+
+No conformidades Identificadas: ([N]):
+
+Tipificación: [Texto exacto]
+
+Hallazgos: [Detalle por consulta con correlación diagnóstica]
+
+Impacto en la atención: [Descripción del impacto]
+
+...continúa hasta completar todos los componentes afectados...
+
+────────────────────────────────────────────────────────────
 
 Análisis de Eventos de Riesgo
-Se identificaron [Y] Eventos de Riesgo, las cuales si bien no son de gravedad crítica estas se convierten en oportunidades de mejora que se centran principalmente en los componentes de [componentes afectados]
 
-1. [Componente]
-[criterio individual afectado]
-Evento de Riesgo Identificados: [N]:
-[Tipificación]
-[Hallazgos]
-[Impacto en la atención]
+Se identificaron [Y] Eventos de Riesgo, los cuales si bien no son de gravedad crítica se convierten en oportunidades de mejora que se centran principalmente en los componentes de [COMPONENTES AFECTADOS].
 
-[siguiente criterio si aplica...]"
+1. [COMPONENTE]
+
+[Criterio afectado subrayado]
+
+Evento de Riesgo Identificado: ([N]):
+
+Tipificación: [Texto exacto del diccionario de tipificaciones]
+
+Hallazgos: En [las/la] consulta(s) (ID [lista]) [descripción detallada por consulta con correlación diagnóstica].
+
+Impacto en la atención: [Descripción del impacto].
+
+[Siguiente criterio si aplica...]
+
+2. [SIGUIENTE COMPONENTE]
+
+...continúa hasta completar todos los componentes afectados..."
+
 ---
 
-IMPORTANTE sobre el Resumen Ejecutivo:
-- ESTRICTAMENTE, no agregues texto ni análisis adicional al formato especificado.
-- El texto de salida debe ser tal cual se especifica, sin adiciones.
-- Tono: Ejecutivo, urgente pero profesional. Evita rodeos innecesarios. Evita generar tablas en el resumen.
+IMPORTANTE sobre el formato:
+- ESTRICTAMENTE, sigue el formato línea por línea como se especifica arriba.
+- Cada tipificación debe tener su propio bloque de Tipificación + Hallazgos + Impacto.
+- Los hallazgos SIEMPRE deben detallar CADA consulta individualmente con su ID y diagnóstico.
+- El Resumen Ejecutivo NO debe tener tablas ni análisis extendido.
+- Tono: Ejecutivo, urgente pero profesional. Evita rodeos innecesarios.
+- El número de informe sigue el formato: [CÓDIGO]-[ABREV_ESP]-[AÑO]-P[NÚM_PERÍODO] (ej: 000FV1-MG-2026-P003)
+  - Abreviaturas de especialidad: MG (Medicina General), MI (Medicina Interna), PD (Pediatría), GY (Ginecología), PS (Psicología), NU (Nutrición), SS (Servicio Social)
 """
 
 
@@ -280,34 +335,54 @@ def parse_report_sections(report_text: str) -> dict:
         buffer = []
         return text
 
+    # Skip the INFORME header block (NOMBRE, CÓDIGO, ESPECIALIDAD, etc.)
+    skip_header = True
+
     for line in lines:
         line_stripped = line.strip()
+        upper = line_stripped.upper()
 
-        if "ANÁLISIS CUANTITATIVO" in line_stripped.upper():
+        # Skip informe header lines until we hit a real section
+        if skip_header:
+            if any(kw in upper for kw in [
+                "INFORME DE AUDITORÍA", "NOMBRE:", "NOMBRE ", "CÓDIGO:", "CÓDIGO ",
+                "ESPECIALIDAD:", "ESPECIALIDAD ", "DEPENDENCIA:", "DEPENDENCIA ",
+                "PERIODO AUDITADO", "---",
+            ]):
+                continue
+            if upper and not any(kw in upper for kw in ["RESUMEN", "REPORTE", "CUADRO", "ANÁLISIS", "COMENTARIO"]):
+                # Still in header area if it's just text with no section keyword
+                if not current_section:
+                    continue
+            skip_header = False
+
+        if "ANÁLISIS CUANTITATIVO" in upper:
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "cuantitativo"
-        elif "ANÁLISIS CUALITATIVO" in line_stripped.upper():
+        elif "ANÁLISIS CUALITATIVO" in upper:
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "cualitativo"
-        elif "ANÁLISIS DE NO CONFORMIDADES" in line_stripped.upper():
+        elif "ANÁLISIS DE NO CONFORMIDADES" in upper and "ANÁLISIS DE NO CONFORMIDADES" == upper.replace("**", "").strip():
+            # Only match standalone section header, not inline text
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "no_conformidades"
-        elif "ANÁLISIS DE EVENTOS DE RIESGO" in line_stripped.upper():
+        elif "ANÁLISIS DE EVENTOS DE RIESGO" in upper:
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "eventos_riesgo"
-        elif "RESUMEN EJECUTIVO" in line_stripped.upper():
+        elif "RESUMEN EJECUTIVO" in upper:
+            skip_header = False
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "resumen_ejecutivo"
-        elif "CUADRO DE CUMPLIMIENTO" in line_stripped.upper() or "REPORTE DE CUMPLIMIENTO" in line_stripped.upper():
+        elif "CUADRO DE CUMPLIMIENTO" in upper or "REPORTE DE CUMPLIMIENTO" in upper:
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "cumplimiento"
-        elif "COMENTARIO DE SEGUIMIENTO" in line_stripped.upper():
+        elif "COMENTARIO DE SEGUIMIENTO" in upper:
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "seguimiento"

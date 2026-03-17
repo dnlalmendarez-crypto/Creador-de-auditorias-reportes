@@ -82,51 +82,121 @@ def _add_heading(doc: Document, text: str, level: int = 1):
     return para
 
 
+def _get_specialty_abbrev(specialty: str) -> str:
+    """Get specialty abbreviation for informe number."""
+    spec_lower = specialty.lower()
+    if "servicio social" in spec_lower or "medgen ss" in spec_lower:
+        return "SS"
+    if "general" in spec_lower or "medgen" in spec_lower:
+        return "MG"
+    if "interna" in spec_lower or "medint" in spec_lower:
+        return "MI"
+    if "pediat" in spec_lower or "pedia" in spec_lower:
+        return "PD"
+    if "ginec" in spec_lower or "gyobs" in spec_lower or "giyobs" in spec_lower:
+        return "GY"
+    if "psic" in spec_lower:
+        return "PS"
+    if "nutri" in spec_lower:
+        return "NU"
+    return "MG"
+
+
 def _add_cover_table(doc: Document, doctor_name: str, doctor_code: str, period: str, specialty: str = "Medicina General"):
-    """Add the report header/cover table."""
-    table = doc.add_table(rows=4, cols=2)
+    """Add the report header/cover table matching the informe format."""
+    # Build informe number
+    spec_abbrev = _get_specialty_abbrev(specialty)
+    # Extract year and period number from period string
+    import re as _re
+    year_match = _re.search(r"20\d{2}", period)
+    year_str = year_match.group(0) if year_match else str(date.today().year)
+    # Try to determine period number from the period string
+    period_num = "001"
+    month_map = {
+        "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+        "julio": 7, "agosto": 8, "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
+        "ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6,
+        "jul": 7, "ago": 8, "sep": 9, "oct": 10, "nov": 11, "dic": 12,
+    }
+    period_lower = period.lower()
+    for m_name, m_num in month_map.items():
+        if m_name in period_lower:
+            # 2 quincenas per month
+            q_num = (m_num - 1) * 2 + 1
+            if "16" in period or "segunda" in period_lower:
+                q_num += 1
+            period_num = f"{q_num:03d}"
+            break
+
+    informe_num = f"{doctor_code}-{spec_abbrev}-{year_str}-P{period_num}"
+
+    table = doc.add_table(rows=7, cols=2)
     _set_table_style(table)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
-    # Row 0: Title
+    # Row 0: INFORME DE AUDITORÍA N°
     row0 = table.rows[0]
     row0.cells[0].merge(row0.cells[1])
     cell = row0.cells[0]
     _set_cell_bg(cell, COLORS["header_bg"])
     p = cell.paragraphs[0]
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run("REPORTE DE AUDITORÍA MÉDICA DE CALIDAD")
+    run = p.add_run(f"INFORME DE AUDITORÍA N° {informe_num}")
     _set_run_format(run, bold=True, size=14, color=COLORS["header_text"])
 
-    # Row 1: Doctor / Code
-    labels = [("MÉDICO:", doctor_name), ("CÓDIGO:", doctor_code)]
+    # Row 1: Separator
     row1 = table.rows[1]
-    for i, (label, value) in enumerate(labels):
-        _set_cell_bg(row1.cells[i], COLORS["subsection_bg"])
-        p = row1.cells[i].paragraphs[0]
-        r1 = p.add_run(f"{label} ")
-        _set_run_format(r1, bold=True, size=11)
-        r2 = p.add_run(value)
-        _set_run_format(r2, bold=False, size=11)
+    row1.cells[0].merge(row1.cells[1])
+    _set_cell_bg(row1.cells[0], COLORS["subsection_bg"])
 
-    # Row 2: Period / Specialty
+    # Row 2: NOMBRE
     row2 = table.rows[2]
-    for i, (label, value) in enumerate([("PERÍODO:", period), ("ESPECIALIDAD:", specialty)]):
-        _set_cell_bg(row2.cells[i], COLORS["subsection_bg"])
-        p = row2.cells[i].paragraphs[0]
-        r1 = p.add_run(f"{label} ")
-        _set_run_format(r1, bold=True, size=11)
-        r2 = p.add_run(value)
-        _set_run_format(r2, bold=False, size=11)
+    row2.cells[0].merge(row2.cells[1])
+    _set_cell_bg(row2.cells[0], COLORS["subsection_bg"])
+    p = row2.cells[0].paragraphs[0]
+    r1 = p.add_run("NOMBRE           ")
+    _set_run_format(r1, bold=True, size=11)
+    r2 = p.add_run(doctor_name.upper())
+    _set_run_format(r2, size=11)
 
-    # Row 3: Date
+    # Row 3: CÓDIGO / ESPECIALIDAD
     row3 = table.rows[3]
-    row3.cells[0].merge(row3.cells[1])
     _set_cell_bg(row3.cells[0], COLORS["subsection_bg"])
     p = row3.cells[0].paragraphs[0]
-    r1 = p.add_run("FECHA DE GENERACIÓN: ")
+    r1 = p.add_run("CÓDIGO           ")
     _set_run_format(r1, bold=True, size=11)
-    r2 = p.add_run(date.today().strftime("%d/%m/%Y"))
+    r2 = p.add_run(doctor_code)
+    _set_run_format(r2, size=11)
+    _set_cell_bg(row3.cells[1], COLORS["subsection_bg"])
+
+    # Row 4: ESPECIALIDAD
+    row4 = table.rows[4]
+    row4.cells[0].merge(row4.cells[1])
+    _set_cell_bg(row4.cells[0], COLORS["subsection_bg"])
+    p = row4.cells[0].paragraphs[0]
+    r1 = p.add_run("ESPECIALIDAD     ")
+    _set_run_format(r1, bold=True, size=11)
+    r2 = p.add_run(specialty.upper())
+    _set_run_format(r2, size=11)
+
+    # Row 5: DEPENDENCIA
+    row5 = table.rows[5]
+    row5.cells[0].merge(row5.cells[1])
+    _set_cell_bg(row5.cells[0], COLORS["subsection_bg"])
+    p = row5.cells[0].paragraphs[0]
+    r1 = p.add_run("DEPENDENCIA      ")
+    _set_run_format(r1, bold=True, size=11)
+    r2 = p.add_run("Doctor SV - El Salvador")
+    _set_run_format(r2, size=11)
+
+    # Row 6: PERIODO AUDITADO
+    row6 = table.rows[6]
+    row6.cells[0].merge(row6.cells[1])
+    _set_cell_bg(row6.cells[0], COLORS["subsection_bg"])
+    p = row6.cells[0].paragraphs[0]
+    r1 = p.add_run("PERIODO AUDITADO ")
+    _set_run_format(r1, bold=True, size=11)
+    r2 = p.add_run(period)
     _set_run_format(r2, size=11)
 
     doc.add_paragraph()
@@ -334,18 +404,33 @@ def _add_body_text(doc: Document, text: str):
             doc.add_paragraph()
             continue
 
+        # Separator lines (─── or ___)
+        if all(c in "─_═━" for c in stripped) and len(stripped) > 10:
+            _add_separator(doc)
+            continue
+
         para = doc.add_paragraph()
         para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
-        # Handle **bold** markers
-        parts = re.split(r"(\*\*[^*]+\*\*)", stripped)
-        for part in parts:
-            if part.startswith("**") and part.endswith("**"):
-                run = para.add_run(part[2:-2])
+        # First handle [text]{.underline} markers, then **bold**
+        # Process: split by underline markers first, then bold within each part
+        underline_parts = re.split(r"(\[[^\]]+\]\{\.underline\})", stripped)
+        for u_part in underline_parts:
+            underline_match = re.match(r"\[([^\]]+)\]\{\.underline\}", u_part)
+            if underline_match:
+                run = para.add_run(underline_match.group(1))
                 _set_run_format(run, bold=True, size=11)
+                run.underline = True
             else:
-                run = para.add_run(part)
-                _set_run_format(run, size=11)
+                # Handle **bold** markers within non-underline parts
+                bold_parts = re.split(r"(\*\*[^*]+\*\*)", u_part)
+                for part in bold_parts:
+                    if part.startswith("**") and part.endswith("**"):
+                        run = para.add_run(part[2:-2])
+                        _set_run_format(run, bold=True, size=11)
+                    else:
+                        run = para.add_run(part)
+                        _set_run_format(run, size=11)
 
 
 def _add_separator(doc: Document):
@@ -396,9 +481,16 @@ def generate_report_docx(
         _add_section_banner(doc, "RESUMEN EJECUTIVO")
         _add_body_text(doc, report_sections["resumen_ejecutivo"])
 
-    # ── 2. CUADRO DE CUMPLIMIENTO ────────────────────────────────────────────
+    # ── 2. REPORTE DE CUMPLIMIENTO POR CRITERIO ─────────────────────────────
     if report_sections.get("cumplimiento"):
-        _add_section_banner(doc, "CUADRO DE CUMPLIMIENTO POR CRITERIO")
+        _add_section_banner(doc, "REPORTE DE CUMPLIMIENTO POR CRITERIO")
+        # Add description
+        desc_para = doc.add_paragraph()
+        desc_run = desc_para.add_run(
+            "Nivel de cumplimiento por criterio evaluado, organizado por Criterio clínico. "
+            "Los porcentajes se calculan sobre el total de citas auditadas."
+        )
+        _set_run_format(desc_run, size=10, italic=True)
         _add_compliance_table(doc, report_sections["cumplimiento"])
         _add_color_legend(doc)
 
@@ -407,13 +499,17 @@ def generate_report_docx(
         _add_section_banner(doc, "COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERÍODOS")
         _add_body_text(doc, report_sections["seguimiento"])
 
-    # ── 4. ANÁLISIS CUANTITATIVO ─────────────────────────────────────────────
+    # ── 4. ANÁLISIS DE NO CONFORMIDADES ────────────────────────────────────
+    doc.add_page_break()
+
+    # ── 4a. ANÁLISIS CUANTITATIVO ──────────────────────────────────────────
     if report_sections.get("cuantitativo"):
-        doc.add_page_break()
+        _add_section_banner(doc, "ANÁLISIS DE NO CONFORMIDADES")
+        doc.add_paragraph()
         _add_section_banner(doc, "ANÁLISIS CUANTITATIVO")
         _add_quantitative_table(doc, report_sections["cuantitativo"])
 
-    # ── 5. ANÁLISIS CUALITATIVO ──────────────────────────────────────────────
+    # ── 4b. ANÁLISIS CUALITATIVO ───────────────────────────────────────────
     if report_sections.get("cualitativo") or report_sections.get("no_conformidades"):
         _add_section_banner(doc, "ANÁLISIS CUALITATIVO")
 
