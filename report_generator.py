@@ -749,6 +749,163 @@ def generate_full_report_from_text(
     )
 
 
+def _add_general_cover_table(doc: Document, specialty: str, period: str):
+    """Add the general report header/cover table — same style as individual reports."""
+    table = doc.add_table(rows=5, cols=2)
+    _set_table_style(table)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+    # Row 0: Title banner
+    row0 = table.rows[0]
+    row0.cells[0].merge(row0.cells[1])
+    _set_cell_bg(row0.cells[0], COLORS["header_bg"])
+    p = row0.cells[0].paragraphs[0]
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("REPORTE GENERAL — ANÁLISIS DE PARETO")
+    _set_run_format(run, bold=True, size=14, color=COLORS["header_text"])
+
+    # Row 1: Separator
+    row1 = table.rows[1]
+    row1.cells[0].merge(row1.cells[1])
+    _set_cell_bg(row1.cells[0], COLORS["subsection_bg"])
+
+    # Row 2: ESPECIALIDAD
+    row2 = table.rows[2]
+    row2.cells[0].merge(row2.cells[1])
+    _set_cell_bg(row2.cells[0], COLORS["subsection_bg"])
+    p = row2.cells[0].paragraphs[0]
+    r1 = p.add_run("ESPECIALIDAD     ")
+    _set_run_format(r1, bold=True, size=11)
+    r2 = p.add_run(specialty.upper())
+    _set_run_format(r2, size=11)
+
+    # Row 3: PERIODO AUDITADO
+    row3 = table.rows[3]
+    row3.cells[0].merge(row3.cells[1])
+    _set_cell_bg(row3.cells[0], COLORS["subsection_bg"])
+    p = row3.cells[0].paragraphs[0]
+    r1 = p.add_run("PERIODO AUDITADO ")
+    _set_run_format(r1, bold=True, size=11)
+    r2 = p.add_run(period)
+    _set_run_format(r2, size=11)
+
+    # Row 4: DEPENDENCIA + FECHA
+    row4 = table.rows[4]
+    _set_cell_bg(row4.cells[0], COLORS["subsection_bg"])
+    p = row4.cells[0].paragraphs[0]
+    r1 = p.add_run("DEPENDENCIA      ")
+    _set_run_format(r1, bold=True, size=11)
+    r2 = p.add_run("Doctor SV - El Salvador")
+    _set_run_format(r2, size=11)
+    _set_cell_bg(row4.cells[1], COLORS["subsection_bg"])
+    p = row4.cells[1].paragraphs[0]
+    r1 = p.add_run("FECHA  ")
+    _set_run_format(r1, bold=True, size=11)
+    r2 = p.add_run(date.today().strftime("%d/%m/%Y"))
+    _set_run_format(r2, size=11)
+
+    doc.add_paragraph()
+
+
+def _parse_general_report_sections(report_text: str) -> dict:
+    """
+    Parse the Pareto general report into sections for structured document generation.
+    Returns dict with keys: tabla_pareto, causas_vitales, resumen_ejecutivo,
+    medicos_riesgo, full_text.
+    """
+    sections = {
+        "tabla_pareto": "",
+        "causas_vitales": "",
+        "resumen_ejecutivo": "",
+        "medicos_riesgo": "",
+        "full_text": report_text,
+    }
+
+    lines = report_text.split("\n")
+    current_section = None
+    buffer = []
+
+    def flush_buffer():
+        nonlocal buffer
+        text = "\n".join(buffer).strip()
+        buffer = []
+        return text
+
+    for line in lines:
+        stripped = line.strip()
+        upper = stripped.upper()
+
+        if "TABLA DE PARETO" in upper:
+            if current_section:
+                sections[current_section] = flush_buffer()
+            current_section = "tabla_pareto"
+        elif "POCAS CAUSAS VITALES" in upper or "CAUSAS VITALES" in upper and "POCAS" in upper:
+            if current_section:
+                sections[current_section] = flush_buffer()
+            current_section = "causas_vitales"
+        elif "RESUMEN EJECUTIVO" in upper:
+            if current_section:
+                sections[current_section] = flush_buffer()
+            current_section = "resumen_ejecutivo"
+        elif "MÉDICOS EN RIESGO" in upper or "MEDICOS EN RIESGO" in upper or "MEJOR EVALUADOS" in upper:
+            if current_section:
+                sections[current_section] = flush_buffer()
+            current_section = "medicos_riesgo"
+        else:
+            buffer.append(line)
+
+    if current_section and buffer:
+        sections[current_section] = flush_buffer()
+
+    return sections
+
+
+def _add_pareto_table(doc: Document, table_text: str):
+    """Parse and render the Pareto analysis table with same style as compliance/quantitative tables."""
+    lines = [l.strip() for l in table_text.strip().split("\n") if l.strip()]
+    table_lines = [l for l in lines if l.startswith("|") and "---" not in l]
+    if not table_lines:
+        _add_body_text(doc, table_text)
+        return
+
+    # Parse header + rows
+    header_cells = [c.strip() for c in table_lines[0].split("|") if c.strip()]
+    data_rows = []
+    for tl in table_lines[1:]:
+        cells = [c.strip() for c in tl.split("|") if c.strip()]
+        if cells:
+            data_rows.append(cells)
+
+    ncols = len(header_cells)
+    table = doc.add_table(rows=1 + len(data_rows), cols=ncols)
+    _set_table_style(table)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+    # Header row
+    for j, hdr in enumerate(header_cells):
+        cell = table.cell(0, j)
+        _set_cell_bg(cell, COLORS["table_header"])
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(hdr)
+        _set_run_format(run, bold=True, size=9, color=COLORS["header_text"])
+
+    # Data rows
+    for i, row_data in enumerate(data_rows):
+        for j in range(min(len(row_data), ncols)):
+            cell = table.cell(i + 1, j)
+            if i % 2 == 1:
+                _set_cell_bg(cell, COLORS["table_alt"])
+            p = cell.paragraphs[0]
+            # Check if this row contains accumulated % > 80 (vital few zone)
+            is_bold = row_data[j].startswith("**") and row_data[j].endswith("**")
+            text = row_data[j].strip("*")
+            run = p.add_run(text)
+            _set_run_format(run, bold=is_bold, size=9)
+
+    doc.add_paragraph()
+
+
 def generate_general_report_docx(
     report_text: str,
     specialty: str,
@@ -760,6 +917,7 @@ def generate_general_report_docx(
 ) -> bytes:
     """
     Generate a general Pareto report Word document with embedded charts.
+    Uses the same structural pattern and template styles as individual reports.
     """
     if template_bytes:
         doc = Document(io.BytesIO(template_bytes))
@@ -776,49 +934,33 @@ def generate_general_report_docx(
         section.top_margin = Cm(2.0)
         section.bottom_margin = Cm(2.0)
 
-    # Cover table
-    table = doc.add_table(rows=3, cols=2)
-    _set_table_style(table)
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    # Parse report into sections
+    sections = _parse_general_report_sections(report_text)
 
-    row0 = table.rows[0]
-    row0.cells[0].merge(row0.cells[1])
-    _set_cell_bg(row0.cells[0], COLORS["header_bg"])
-    p = row0.cells[0].paragraphs[0]
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run("REPORTE GENERAL — ANÁLISIS DE PARETO")
-    _set_run_format(run, bold=True, size=14, color=COLORS["header_text"])
+    # ── COVER TABLE (same style as individual reports) ────────────────────
+    _add_general_cover_table(doc, specialty, period)
 
-    row1 = table.rows[1]
-    _set_cell_bg(row1.cells[0], COLORS["subsection_bg"])
-    p = row1.cells[0].paragraphs[0]
-    r1 = p.add_run("ESPECIALIDAD: ")
-    _set_run_format(r1, bold=True, size=11)
-    r2 = p.add_run(specialty)
-    _set_run_format(r2, size=11)
-    _set_cell_bg(row1.cells[1], COLORS["subsection_bg"])
-    p = row1.cells[1].paragraphs[0]
-    r1 = p.add_run("PERÍODO: ")
-    _set_run_format(r1, bold=True, size=11)
-    r2 = p.add_run(period)
-    _set_run_format(r2, size=11)
+    # ── TABLA DE PARETO ──────────────────────────────────────────────────
+    if sections.get("tabla_pareto"):
+        _add_section_banner(doc, "TABLA DE PARETO — " + specialty.upper())
+        _add_pareto_table(doc, sections["tabla_pareto"])
 
-    row2 = table.rows[2]
-    row2.cells[0].merge(row2.cells[1])
-    _set_cell_bg(row2.cells[0], COLORS["subsection_bg"])
-    p = row2.cells[0].paragraphs[0]
-    from datetime import date as _date
-    r1 = p.add_run("FECHA DE GENERACIÓN: ")
-    _set_run_format(r1, bold=True, size=11)
-    r2 = p.add_run(_date.today().strftime("%d/%m/%Y"))
-    _set_run_format(r2, size=11)
+    # ── POCAS CAUSAS VITALES ─────────────────────────────────────────────
+    if sections.get("causas_vitales"):
+        _add_section_banner(doc, "POCAS CAUSAS VITALES (PUNTOS CRÍTICOS DE INTERVENCIÓN)")
+        _add_body_text(doc, sections["causas_vitales"])
 
-    doc.add_paragraph()
+    # ── RESUMEN EJECUTIVO ────────────────────────────────────────────────
+    if sections.get("resumen_ejecutivo"):
+        _add_section_banner(doc, "RESUMEN EJECUTIVO")
+        _add_body_text(doc, sections["resumen_ejecutivo"])
 
-    # Report body text
-    _add_body_text(doc, report_text)
+    # ── MÉDICOS EN RIESGO Y MEJOR EVALUADOS ──────────────────────────────
+    if sections.get("medicos_riesgo"):
+        _add_section_banner(doc, "MÉDICOS EN RIESGO Y MEJOR EVALUADOS")
+        _add_body_text(doc, sections["medicos_riesgo"])
 
-    # Charts section
+    # ── GRÁFICAS DE ANÁLISIS ─────────────────────────────────────────────
     if chart_pareto or chart_accumulated or chart_nc_vs_er:
         doc.add_page_break()
         _add_section_banner(doc, "GRÁFICAS DE ANÁLISIS")
@@ -844,7 +986,7 @@ def generate_general_report_docx(
         last_para = doc.paragraphs[-1]
         last_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    # Footer
+    # ── FOOTER ───────────────────────────────────────────────────────────
     doc.add_paragraph()
     note = doc.add_paragraph()
     note.alignment = WD_ALIGN_PARAGRAPH.CENTER
