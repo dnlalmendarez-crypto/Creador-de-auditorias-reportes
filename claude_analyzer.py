@@ -320,79 +320,113 @@ def parse_report_sections(report_text: str) -> dict:
     return sections
 
 
-GENERAL_REPORT_SYSTEM_PROMPT = """Eres un experto en auditoría médica de calidad. Tu tarea es generar un REPORTE GENERAL consolidado que resuma los hallazgos de auditoría de múltiples médicos, agrupados por especialidad.
+PARETO_SYSTEM_PROMPT = """Actúa como un Analista de Calidad Clínica y Mejora de Procesos especializado en Auditoría Médica de Telemedicina. Tu objetivo es transformar datos crudos de "No Conformidades y Eventos de Riesgos" en decisiones estratégicas utilizando el Principio de Pareto (80/20).
 
-FORMATO DE SALIDA:
+PALABRAS CLAVE DE ESPECIALIDAD (Filtro Columna "Especialidad"):
+- PEDIAT (Pediatría)
+- GIYOBS (Ginecología)
+- MEDINT (Medicina Interna)
+- MEDGEN (Medicina General)
+- MEDGEN SS (Médico del Servicio Social)
+- PSICOLOGIA (Psicología)
+- NUTRICION (Nutrición)
 
-RESUMEN GENERAL DE AUDITORÍA
-"Reporte consolidado del período [PERÍODO]. Se auditaron [N] médicos en [X] especialidad(es).
+METODOLOGÍA DE ANÁLISIS (PARETO):
+1. Filtro Dual: Filtra la base de datos por la especialidad solicitada y el periodo indicado.
+2. Mapeo de Tipificación: Busca la columna TIPIFICACION (PARETO). Cruza estos datos con el "Diccionario de Errores" para asegurar que los nombres de las fallas sean exactos a la normativa de calidad.
+3. Agrupación: Suma la frecuencia de cada error detectado para esa especialidad/periodo específico.
+4. Ordenamiento: De mayor a menor frecuencia.
+5. % Individual: (Frecuencia de la falla / Total de fallas del filtro) * 100.
+6. % Acumulado: Suma progresiva de los porcentajes individuales.
+7. Zona Crítica (Vital Few): Identifica las causas que sumen hasta el 80% acumulado. Si una causa hace que el acumulado salte de (ej. 75% a 85%), esa causa debe incluirse como la última de las causas vitales.
 
-Hallazgos totales:
-- Total de No Conformidades: [X]
-- Total de Eventos de Riesgo: [Y]
-- Promedio general de cumplimiento: [Z]%
+ESTRUCTURA DE SALIDA OBLIGATORIA:
 
-RESULTADOS POR ESPECIALIDAD
-[Para cada especialidad, lista los médicos con sus métricas principales]
+TABLA DE PARETO
+| Componente | Criterio | Causa/Falla (Texto exacto Diccionario) | Frecuencia | % Individual | % Acumulado |
+|---|---|---|---|---|---|
+| [Categoría] | [Código] | [Descripción del Error] | [Nº] | [X.X%] | [X.X%] |
+(Incluir TODAS las filas hasta llegar al 100%)
 
-**[Especialidad]**
-| Médico | Código | No Conformidades | Eventos de Riesgo | Cumplimiento Promedio |
-[filas con datos]
+POCAS CAUSAS VITALES
+[Causa Crítica 1]: Impacta en un [X.X]% del total de errores. Requiere intervención inmediata.
+[Causa Crítica 2]: Contribuye al [Y.Y]% acumulado.
+(Listar solo las que integran el 80% inicial)
 
-ANÁLISIS DE TENDENCIAS
-- Especialidades con mayor cantidad de hallazgos
-- Criterios más afectados de forma transversal
-- Médicos con mejor y peor desempeño
-- Áreas prioritarias de intervención
+RESUMEN EJECUTIVO
+[Máximo 5 líneas. Analizar si los errores son de carácter administrativo, clínico o de plataforma. Indicar qué tema específico debe abordar el área de capacitación y el impacto proyectado en la calidad si se corrigen estas pocas causas vitales.]
 
-RECOMENDACIONES
-[Recomendaciones generales basadas en los hallazgos consolidados]"
+MÉDICOS EN RIESGO Y MEJOR EVALUADOS
+**Médicos en mayor riesgo (peor evaluados):**
+[Lista de médicos con más hallazgos negativos y su conteo]
 
-REGLAS:
+**Médicos mejor evaluados:**
+[Lista de médicos con menos hallazgos y mejor cumplimiento]
+
+REGLAS DE SEGURIDAD:
+- Si la especialidad indicada no se encuentra en el registro, responde: "La especialidad indicada no se encuentra en el registro. Por favor, elija entre: PEDIAT, GIYOBS, MEDINT, MEDGEN, MEDGEN SS, PSICOLOGIA o NUTRICION."
+- Si el periodo solicitado no tiene datos registrados, indícalo claramente.
 - Usa SOLO los datos proporcionados. NO inventes datos.
-- Sé conciso y ejecutivo.
-- Agrupa claramente por especialidad.
-- Destaca patrones comunes entre médicos.
+- Los hallazgos deben ser de las tipificaciones o causas encontradas en los datos.
 """
+
+# Mapping from UI specialty labels to filter keywords
+SPECIALTY_KEYWORDS = {
+    "Medicina General (MEDGEN)": "MEDGEN",
+    "Medicina General Servicio Social (MEDGEN SS)": "MEDGEN SS",
+    "Medicina Interna (MEDINT)": "MEDINT",
+    "Pediatría (PEDIA)": "PEDIAT",
+    "Psicología (PSICO)": "PSICOLOGIA",
+    "Nutrición (NUTRI)": "NUTRICION",
+    "Ginecología (GYOBS)": "GIYOBS",
+}
 
 
 def analyze_general_report(
-    reports_summary: str,
+    base_datos_text: str,
+    tipificaciones_text: str,
     period: str,
-    specialty_filter: str = "Todas",
+    specialty: str,
     api_key: str | None = None,
     model: str = "claude-opus-4-6",
     stream_callback=None,
 ) -> str:
-    """Generate a consolidated general report from individual report summaries."""
+    """Generate a Pareto-based general report for a specialty."""
     key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
     if not key:
         raise ValueError("ANTHROPIC_API_KEY not set.")
 
     client = anthropic.Anthropic(api_key=key)
 
-    filter_text = f"Filtra los resultados para la especialidad: **{specialty_filter}**" if specialty_filter != "Todas" else "Incluye TODAS las especialidades."
+    specialty_kw = SPECIALTY_KEYWORDS.get(specialty, specialty)
 
-    prompt = f"""# SOLICITUD DE REPORTE GENERAL DE AUDITORÍA
+    prompt = f"""# SOLICITUD DE REPORTE GENERAL — ANÁLISIS DE PARETO
 
+## ESPECIALIDAD: {specialty} (filtro: {specialty_kw})
 ## PERÍODO: {period}
-## FILTRO: {filter_text}
 
 ---
 
-## DATOS DE REPORTES INDIVIDUALES:
-{reports_summary}
+## BASE DE DATOS DE CONSULTAS AUDITADAS:
+{base_datos_text}
+
+---
+
+## TIPIFICACIONES DE USO COMÚN EN AUDITORÍA MÉDICA (Diccionario de Errores):
+{tipificaciones_text}
 
 ---
 
 ## INSTRUCCIONES:
-1. Genera un reporte general consolidado para el período {period}.
-2. {filter_text}
-3. Resume los hallazgos de todos los médicos incluidos.
-4. Identifica tendencias y patrones comunes.
-5. Prioriza las áreas que necesitan intervención.
+1. Filtra la base de datos por la especialidad **{specialty_kw}** y el período **{period}**.
+2. Identifica la columna TIPIFICACION (PARETO) y agrupa por frecuencia de cada error.
+3. Realiza el análisis de Pareto completo (ordenar, calcular % individual, % acumulado).
+4. Identifica las Pocas Causas Vitales (80% acumulado).
+5. Genera la Tabla de Pareto completa hasta el 100%.
+6. Identifica los médicos en mayor riesgo y los mejor evaluados.
+7. Genera el Resumen Ejecutivo (máximo 5 líneas).
 
-GENERA EL REPORTE GENERAL AHORA:
+GENERA EL REPORTE DE PARETO AHORA:
 """
 
     if stream_callback:
@@ -400,7 +434,7 @@ GENERA EL REPORTE GENERAL AHORA:
         with client.messages.stream(
             model=model,
             max_tokens=16384,
-            system=GENERAL_REPORT_SYSTEM_PROMPT,
+            system=PARETO_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             for text_chunk in stream.text_stream:
@@ -411,7 +445,7 @@ GENERA EL REPORTE GENERAL AHORA:
         response = client.messages.create(
             model=model,
             max_tokens=16384,
-            system=GENERAL_REPORT_SYSTEM_PROMPT,
+            system=PARETO_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
         return response.content[0].text

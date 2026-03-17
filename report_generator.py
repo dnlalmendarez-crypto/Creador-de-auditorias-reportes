@@ -488,3 +488,111 @@ def generate_full_report_from_text(
         specialty=specialty,
         template_bytes=template_bytes,
     )
+
+
+def generate_general_report_docx(
+    report_text: str,
+    specialty: str,
+    period: str,
+    chart_pareto: bytes | None = None,
+    chart_accumulated: bytes | None = None,
+    chart_nc_vs_er: bytes | None = None,
+    template_bytes: bytes | None = None,
+) -> bytes:
+    """
+    Generate a general Pareto report Word document with embedded charts.
+    """
+    if template_bytes:
+        doc = Document(io.BytesIO(template_bytes))
+        body = doc.element.body
+        for child in list(body):
+            if child.tag.endswith("}sectPr"):
+                continue
+            body.remove(child)
+    else:
+        doc = Document()
+        section = doc.sections[0]
+        section.left_margin = Cm(2.5)
+        section.right_margin = Cm(2.5)
+        section.top_margin = Cm(2.0)
+        section.bottom_margin = Cm(2.0)
+
+    # Cover table
+    table = doc.add_table(rows=3, cols=2)
+    _set_table_style(table)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+    row0 = table.rows[0]
+    row0.cells[0].merge(row0.cells[1])
+    _set_cell_bg(row0.cells[0], COLORS["header_bg"])
+    p = row0.cells[0].paragraphs[0]
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("REPORTE GENERAL — ANÁLISIS DE PARETO")
+    _set_run_format(run, bold=True, size=14, color=COLORS["header_text"])
+
+    row1 = table.rows[1]
+    _set_cell_bg(row1.cells[0], COLORS["subsection_bg"])
+    p = row1.cells[0].paragraphs[0]
+    r1 = p.add_run("ESPECIALIDAD: ")
+    _set_run_format(r1, bold=True, size=11)
+    r2 = p.add_run(specialty)
+    _set_run_format(r2, size=11)
+    _set_cell_bg(row1.cells[1], COLORS["subsection_bg"])
+    p = row1.cells[1].paragraphs[0]
+    r1 = p.add_run("PERÍODO: ")
+    _set_run_format(r1, bold=True, size=11)
+    r2 = p.add_run(period)
+    _set_run_format(r2, size=11)
+
+    row2 = table.rows[2]
+    row2.cells[0].merge(row2.cells[1])
+    _set_cell_bg(row2.cells[0], COLORS["subsection_bg"])
+    p = row2.cells[0].paragraphs[0]
+    from datetime import date as _date
+    r1 = p.add_run("FECHA DE GENERACIÓN: ")
+    _set_run_format(r1, bold=True, size=11)
+    r2 = p.add_run(_date.today().strftime("%d/%m/%Y"))
+    _set_run_format(r2, size=11)
+
+    doc.add_paragraph()
+
+    # Report body text
+    _add_body_text(doc, report_text)
+
+    # Charts section
+    if chart_pareto or chart_accumulated or chart_nc_vs_er:
+        doc.add_page_break()
+        _add_section_banner(doc, "GRÁFICAS DE ANÁLISIS")
+
+    if chart_pareto:
+        doc.add_paragraph()
+        _add_heading(doc, "Diagrama de Pareto — Hallazgos del Período", level=2)
+        doc.add_picture(io.BytesIO(chart_pareto), width=Inches(6.0))
+        last_para = doc.paragraphs[-1]
+        last_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    if chart_accumulated:
+        doc.add_paragraph()
+        _add_heading(doc, "Hallazgos Acumulados por Período", level=2)
+        doc.add_picture(io.BytesIO(chart_accumulated), width=Inches(6.0))
+        last_para = doc.paragraphs[-1]
+        last_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    if chart_nc_vs_er:
+        doc.add_paragraph()
+        _add_heading(doc, "Eventos de Riesgo vs No Conformidades", level=2)
+        doc.add_picture(io.BytesIO(chart_nc_vs_er), width=Inches(5.0))
+        last_para = doc.paragraphs[-1]
+        last_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Footer
+    doc.add_paragraph()
+    note = doc.add_paragraph()
+    note.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = note.add_run("Documento generado automáticamente por el Sistema de Auditoría Médica de Calidad")
+    _set_run_format(run, size=9, italic=True, color=RGBColor(0x7F, 0x7F, 0x7F))
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()

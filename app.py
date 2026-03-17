@@ -679,127 +679,184 @@ with tab2:
 
 
 with tab4:
-    st.markdown("### 📊 Reporte General por Especialidad")
-    st.caption("Genera un reporte consolidado a partir de los reportes individuales ya generados en esta sesión.")
+    st.markdown("### 📊 Reporte General por Especialidad — Análisis de Pareto")
+    st.caption("Genera un análisis de Pareto (80/20) para identificar las causas vitales de No Conformidades y Eventos de Riesgo por especialidad.")
 
-    if not st.session_state.generated_reports:
-        st.info("No hay reportes generados aún. Primero genera reportes individuales en la pestaña 'Generar Reportes'.")
+    import chart_generator as cg
+
+    # Specialty selection
+    gen_specialty = st.selectbox(
+        "Especialidad a evaluar",
+        options=SPECIALTIES,
+        index=0,
+        key="gen_report_specialty",
+        help="Selecciona la especialidad para el reporte general de Pareto.",
+    )
+
+    # Period selection (reuse same period logic)
+    col_yr_gen, col_per_gen = st.columns([1, 3])
+    with col_yr_gen:
+        gen_year = st.selectbox("Año", available_years, index=available_years.index(current_year), key="gen_year")
+    gen_periods = generate_periods(gen_year)
+    gen_period_labels = [p["label"] for p in gen_periods]
+    gen_default_idx = 0
+    if gen_year == now.year:
+        gen_month_idx = (now.month - 1) * 2
+        if now.day > 15:
+            gen_month_idx += 1
+        gen_default_idx = min(gen_month_idx, len(gen_periods) - 1)
+    with col_per_gen:
+        gen_period_label = st.selectbox("Período", gen_period_labels, index=gen_default_idx, key="gen_period")
+    gen_selected_period = next(p for p in gen_periods if p["label"] == gen_period_label)
+    gen_period = gen_selected_period["short_label"]
+
+    st.info(f"Especialidad: **{gen_specialty}** — Período: **{gen_period}**")
+
+    # Data availability check
+    using_gsheets_gen = data_source == "📊 Google Sheets"
+    if using_gsheets_gen:
+        gen_data_ready = st.session_state.gsheets_connected and bool(st.session_state.gsheets_data)
     else:
-        # Collect specialties from generated reports
-        gen_reports = st.session_state.generated_reports
-        report_count = len(gen_reports)
-        st.success(f"Se encontraron **{report_count}** reporte(s) generado(s) en esta sesión.")
+        gen_data_ready = any([base_datos_file, graficas_file])
 
-        # Specialty filter
-        gen_specialty_options = ["Todas"] + SPECIALTIES
-        gen_specialty = st.selectbox(
-            "Filtrar por especialidad",
-            options=gen_specialty_options,
-            index=0,
-            key="gen_report_specialty",
-            help="Selecciona una especialidad para filtrar o 'Todas' para incluir todos los médicos.",
+    if not api_key:
+        st.warning("⚠️ Ingresa tu API Key de Anthropic en el panel lateral.")
+    elif not gen_data_ready:
+        if using_gsheets_gen:
+            st.warning("⚠️ Conecta a Google Sheets primero.")
+        else:
+            st.warning("⚠️ Carga al menos el archivo de Base de Datos x Cita.")
+    elif st.button("📊 Generar Reporte de Pareto", type="primary", use_container_width=True, key="gen_general"):
+        # Load data
+        if using_gsheets_gen:
+            gs_data = st.session_state.gsheets_data
+            base_datos_data_gen = gs_data.get("base_datos")
+            tipificaciones_df_gen = gs_data.get("tipificaciones")
+        else:
+            with st.spinner("Cargando archivos..."):
+                file_cache_gen = get_file_data(
+                    id(clasificacion_file), id(tipificaciones_file),
+                    id(graficas_file), id(base_datos_file),
+                    get_bytes(clasificacion_file), get_bytes(tipificaciones_file),
+                    get_bytes(graficas_file), get_bytes(base_datos_file),
+                )
+            base_datos_data_gen = file_cache_gen.get("base_datos")
+            tipificaciones_df_gen = file_cache_gen.get("tipificaciones")
+
+        # Build text from base_datos (all sheets)
+        base_datos_text_gen = "No se proporcionó Base de Datos."
+        if base_datos_data_gen:
+            parts = []
+            for sheet_name, df in base_datos_data_gen.items():
+                if df is not None and not df.empty:
+                    parts.append(f"**Hoja: {sheet_name}**\n{dl.dataframe_to_markdown_table(df)}")
+            if parts:
+                base_datos_text_gen = "\n\n".join(parts)
+
+        tipificaciones_text_gen = (
+            dl.dataframe_to_markdown_table(tipificaciones_df_gen)
+            if tipificaciones_df_gen is not None
+            else "No se proporcionó archivo de tipificaciones."
         )
 
-        # Period from last generated report
-        gen_period = list(gen_reports.values())[0]["period"]
-        st.info(f"Período del reporte: **{gen_period}**")
+        progress_gen = st.progress(0)
+        status_gen = st.empty()
+        preview_gen = st.empty()
 
-        # Show which reports will be included
-        st.markdown("#### Reportes a incluir:")
-        for code, rdata in gen_reports.items():
-            st.markdown(f"- **{rdata['name']}** ({code}) — {rdata['period']}")
+        status_gen.info("🤖 Generando análisis de Pareto...")
+        progress_gen.progress(20)
 
-        if not api_key:
-            st.warning("⚠️ Ingresa tu API Key de Anthropic en el panel lateral.")
-        elif st.button("📊 Generar Reporte General", type="primary", use_container_width=True, key="gen_general"):
-            # Build summary from all individual reports
-            summaries = []
-            for code, rdata in gen_reports.items():
-                summaries.append(
-                    f"### Médico: {rdata['name']} (Código: {code})\n"
-                    f"Período: {rdata['period']}\n\n"
-                    f"{rdata['report_text']}\n\n---\n"
+        gen_parts = []
+
+        def gen_stream_cb(chunk):
+            gen_parts.append(chunk)
+            current = "".join(gen_parts)
+            preview_gen.markdown(
+                f"**Vista previa:**\n\n```\n{current[-2000:]}\n```"
+            )
+
+        try:
+            general_text = ca.analyze_general_report(
+                base_datos_text=base_datos_text_gen,
+                tipificaciones_text=tipificaciones_text_gen,
+                period=gen_period,
+                specialty=gen_specialty,
+                api_key=api_key,
+                model=selected_model,
+                stream_callback=gen_stream_cb,
+            )
+            progress_gen.progress(60)
+            status_gen.info("📊 Generando gráficas...")
+
+            # Generate charts
+            chart_pareto = cg.generate_pareto_chart(general_text, gen_specialty, gen_period)
+            chart_accumulated = cg.generate_accumulated_chart(
+                st.session_state.generated_reports, gen_specialty
+            )
+            chart_nc_er = cg.generate_nc_vs_er_chart(general_text, gen_specialty, gen_period)
+
+            progress_gen.progress(80)
+            status_gen.info("📝 Generando documento Word...")
+
+            # Generate Word doc
+            gen_docx_bytes = rg.generate_general_report_docx(
+                report_text=general_text,
+                specialty=gen_specialty,
+                period=gen_period,
+                chart_pareto=chart_pareto,
+                chart_accumulated=chart_accumulated,
+                chart_nc_vs_er=chart_nc_er,
+                template_bytes=st.session_state.template_bytes,
+            )
+
+            safe_spec = "".join(c if c.isalnum() or c in " _-" else "_" for c in gen_specialty)
+            gen_filename = f"Reporte_Pareto_{safe_spec}_{gen_period[:10].replace(' ', '_')}.docx"
+
+            progress_gen.progress(100)
+            status_gen.success("Reporte de Pareto generado exitosamente.")
+
+            # Display charts in Streamlit
+            if chart_pareto:
+                st.image(chart_pareto, caption="Diagrama de Pareto — Hallazgos del Período", use_container_width=True)
+            if chart_nc_er:
+                st.image(chart_nc_er, caption="Eventos de Riesgo vs No Conformidades", use_container_width=True)
+            if chart_accumulated:
+                st.image(chart_accumulated, caption="Hallazgos Acumulados por Período", use_container_width=True)
+
+            st.markdown("---")
+            col_dl1, col_dl2 = st.columns(2)
+            with col_dl1:
+                st.download_button(
+                    label="⬇️ Descargar Reporte de Pareto (.docx)",
+                    data=gen_docx_bytes,
+                    file_name=gen_filename,
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    key="dl_general",
                 )
-            combined_summary = "\n".join(summaries)
+            with col_dl2:
+                if drive_folder_input.strip() and st.session_state.get("gcp_creds"):
+                    if st.button("☁️ Subir a Drive", key="drive_general"):
+                        try:
+                            import google_sheets_loader as gsl
+                            folder_id = gsl.extract_folder_id(drive_folder_input.strip())
+                            with st.spinner("Subiendo a Google Drive..."):
+                                link = gsl.upload_file_to_drive(
+                                    credentials_info=st.session_state["gcp_creds"],
+                                    file_bytes=gen_docx_bytes,
+                                    filename=gen_filename,
+                                    folder_id=folder_id,
+                                )
+                            st.success(f"[Abrir en Drive]({link})")
+                        except Exception as drive_err:
+                            st.error(f"Error subiendo a Drive: {drive_err}")
 
-            progress_gen = st.progress(0)
-            status_gen = st.empty()
-            preview_gen = st.empty()
+            with st.expander("Ver texto completo del reporte", expanded=False):
+                st.text_area("Contenido", value=general_text, height=500, disabled=True, key="gen_text_view")
 
-            status_gen.info("🤖 Generando reporte general consolidado...")
-            progress_gen.progress(20)
-
-            gen_parts = []
-
-            def gen_stream_cb(chunk):
-                gen_parts.append(chunk)
-                current = "".join(gen_parts)
-                preview_gen.markdown(
-                    f"**Vista previa:**\n\n```\n{current[-2000:]}\n```"
-                )
-
-            try:
-                general_text = ca.analyze_general_report(
-                    reports_summary=combined_summary,
-                    period=gen_period,
-                    specialty_filter=gen_specialty,
-                    api_key=api_key,
-                    model=selected_model,
-                    stream_callback=gen_stream_cb,
-                )
-                progress_gen.progress(80)
-                status_gen.info("📝 Generando documento Word...")
-
-                # Generate Word doc for general report
-                gen_docx_bytes = rg.generate_full_report_from_text(
-                    doctor_name="REPORTE GENERAL",
-                    doctor_code=gen_specialty if gen_specialty != "Todas" else "TODAS",
-                    period=gen_period,
-                    full_report_text=general_text,
-                    specialty=gen_specialty if gen_specialty != "Todas" else "Todas las Especialidades",
-                    template_bytes=st.session_state.template_bytes,
-                )
-
-                safe_spec = "".join(c if c.isalnum() or c in " _-" else "_" for c in gen_specialty)
-                gen_filename = f"Reporte_General_{safe_spec}_{gen_period[:10].replace(' ', '_')}.docx"
-
-                progress_gen.progress(100)
-                status_gen.success("Reporte general generado exitosamente.")
-
-                col_dl1, col_dl2 = st.columns(2)
-                with col_dl1:
-                    st.download_button(
-                        label="⬇️ Descargar Reporte General (.docx)",
-                        data=gen_docx_bytes,
-                        file_name=gen_filename,
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        key="dl_general",
-                    )
-                with col_dl2:
-                    if drive_folder_input.strip() and st.session_state.get("gcp_creds"):
-                        if st.button("☁️ Subir a Drive", key="drive_general"):
-                            try:
-                                import google_sheets_loader as gsl
-                                folder_id = gsl.extract_folder_id(drive_folder_input.strip())
-                                with st.spinner("Subiendo a Google Drive..."):
-                                    link = gsl.upload_file_to_drive(
-                                        credentials_info=st.session_state["gcp_creds"],
-                                        file_bytes=gen_docx_bytes,
-                                        filename=gen_filename,
-                                        folder_id=folder_id,
-                                    )
-                                st.success(f"[Abrir en Drive]({link})")
-                            except Exception as drive_err:
-                                st.error(f"Error subiendo a Drive: {drive_err}")
-
-                # Show full text
-                with st.expander("Ver texto completo del reporte general", expanded=False):
-                    st.text_area("Contenido", value=general_text, height=500, disabled=True, key="gen_text_view")
-
-            except Exception as e:
-                progress_gen.progress(0)
-                status_gen.error(f"❌ Error generando reporte general: {str(e)}")
-                st.exception(e)
+        except Exception as e:
+            progress_gen.progress(0)
+            status_gen.error(f"❌ Error generando reporte: {str(e)}")
+            st.exception(e)
 
 
 with tab3:
