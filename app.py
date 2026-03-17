@@ -267,9 +267,12 @@ with st.sidebar:
     if template_file:
         st.session_state.template_bytes = template_file.read()
         template_file.seek(0)
-        st.success("Plantilla cargada correctamente.")
+        # Extract and apply colors/fonts from the template
+        rg.apply_template_styles(st.session_state.template_bytes)
+        st.success("Plantilla cargada correctamente. Colores y fuentes extraídos del template.")
     else:
         st.session_state.template_bytes = None
+        rg.apply_template_styles(None)
 
     st.markdown("---")
     st.markdown("### ☁️ Subir a Google Drive (Opcional)")

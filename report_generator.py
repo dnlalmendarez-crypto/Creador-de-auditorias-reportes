@@ -1,7 +1,7 @@
 """
 Report generator module.
 Creates formatted Word (.docx) documents from audit report text.
-Color palette and formatting follow the 'formato de informe' template.
+Color palette and formatting are extracted from the uploaded template.
 """
 
 from docx import Document
@@ -15,8 +15,8 @@ import io
 from datetime import date
 
 
-# ─── COLOR PALETTE ────────────────────────────────────────────────────────────
-COLORS = {
+# ─── DEFAULT COLOR PALETTE (used when no template is provided) ───────────────
+DEFAULT_COLORS = {
     "header_bg": RGBColor(0x1F, 0x39, 0x64),       # Dark navy blue
     "header_text": RGBColor(0xFF, 0xFF, 0xFF),       # White
     "section_bg": RGBColor(0x2E, 0x74, 0xB5),        # Medium blue
@@ -34,7 +34,170 @@ COLORS = {
     "verde": RGBColor(0x00, 0xB0, 0x50),             # Green 98-100%
 }
 
-FONT_NAME = "Calibri"
+DEFAULT_FONT = "Calibri"
+
+# Module-level active styles (overridden when template is loaded)
+COLORS = dict(DEFAULT_COLORS)
+FONT_NAME = DEFAULT_FONT
+
+
+def _hex_to_rgb(hex_str: str) -> RGBColor | None:
+    """Convert a 6-char hex string to RGBColor, or None if invalid."""
+    hex_str = hex_str.strip().lstrip("#")
+    if len(hex_str) != 6:
+        return None
+    try:
+        r, g, b = int(hex_str[0:2], 16), int(hex_str[2:4], 16), int(hex_str[4:6], 16)
+        return RGBColor(r, g, b)
+    except ValueError:
+        return None
+
+
+def _get_cell_fill(cell) -> str | None:
+    """Extract the fill hex color from a cell's XML shading."""
+    tc = cell._tc
+    tcPr = tc.find(qn("w:tcPr"))
+    if tcPr is not None:
+        shd = tcPr.find(qn("w:shd"))
+        if shd is not None:
+            fill = shd.get(qn("w:fill"))
+            if fill and fill.lower() != "auto":
+                return fill
+    return None
+
+
+def _get_run_color(run) -> str | None:
+    """Extract font color hex from a run's XML."""
+    if run.font.color and run.font.color.rgb:
+        rgb = run.font.color.rgb
+        return f"{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}"
+    # Check XML directly
+    rPr = run._r.find(qn("w:rPr"))
+    if rPr is not None:
+        color_el = rPr.find(qn("w:color"))
+        if color_el is not None:
+            val = color_el.get(qn("w:val"))
+            if val and val.lower() != "auto":
+                return val
+    return None
+
+
+def _get_paragraph_shading(para) -> str | None:
+    """Extract paragraph background shading hex."""
+    pPr = para._p.find(qn("w:pPr"))
+    if pPr is not None:
+        shd = pPr.find(qn("w:shd"))
+        if shd is not None:
+            fill = shd.get(qn("w:fill"))
+            if fill and fill.lower() != "auto":
+                return fill
+    return None
+
+
+def extract_template_styles(template_bytes: bytes) -> dict:
+    """
+    Extract colors and font from a template .docx file.
+    Returns a dict with 'colors' (dict) and 'font_name' (str).
+
+    Strategy:
+    - Scan all tables: first row cell fills -> header_bg, text color -> header_text
+    - Second/third rows -> subsection_bg
+    - Scan paragraphs with shading -> section_bg, text color -> section_text
+    - Scan body text runs -> body_text color, font name
+    - Alternating row colors in tables -> table_alt
+    """
+    doc = Document(io.BytesIO(template_bytes))
+
+    extracted = {}
+    font_name = DEFAULT_FONT
+
+    # ── Extract from tables ──────────────────────────────────────────────
+    for table in doc.tables:
+        rows = table.rows
+        if not rows:
+            continue
+
+        # First row = header
+        for cell in rows[0].cells:
+            fill = _get_cell_fill(cell)
+            if fill:
+                rgb = _hex_to_rgb(fill)
+                if rgb and "header_bg" not in extracted:
+                    extracted["header_bg"] = rgb
+                    extracted["table_header"] = rgb
+
+            for para in cell.paragraphs:
+                for run in para.runs:
+                    rc = _get_run_color(run)
+                    if rc:
+                        rgb = _hex_to_rgb(rc)
+                        if rgb and "header_text" not in extracted:
+                            extracted["header_text"] = rgb
+                            extracted["section_text"] = rgb
+                    if run.font.name and run.font.name.strip():
+                        font_name = run.font.name.strip()
+
+        # Rows 1-3 = subsection area
+        for row_idx in range(1, min(4, len(rows))):
+            for cell in rows[row_idx].cells:
+                fill = _get_cell_fill(cell)
+                if fill:
+                    rgb = _hex_to_rgb(fill)
+                    if rgb and "subsection_bg" not in extracted:
+                        extracted["subsection_bg"] = rgb
+
+        # Later rows = look for alternating colors
+        for row_idx in range(2, len(rows)):
+            for cell in rows[row_idx].cells:
+                fill = _get_cell_fill(cell)
+                if fill:
+                    rgb = _hex_to_rgb(fill)
+                    if rgb and rgb != extracted.get("header_bg") and rgb != extracted.get("subsection_bg"):
+                        if "table_alt" not in extracted:
+                            extracted["table_alt"] = rgb
+
+    # ── Extract from paragraphs ──────────────────────────────────────────
+    for para in doc.paragraphs:
+        shd = _get_paragraph_shading(para)
+        if shd:
+            rgb = _hex_to_rgb(shd)
+            if rgb and "section_bg" not in extracted:
+                # Section banners have shaded backgrounds
+                if rgb != extracted.get("header_bg") and rgb != extracted.get("subsection_bg"):
+                    extracted["section_bg"] = rgb
+
+        for run in para.runs:
+            if run.font.name and run.font.name.strip():
+                font_name = run.font.name.strip()
+
+            rc = _get_run_color(run)
+            if rc:
+                rgb = _hex_to_rgb(rc)
+                if rgb:
+                    # Body text color (non-white, non-header)
+                    if rgb != extracted.get("header_text") and "body_text" not in extracted:
+                        extracted["body_text"] = rgb
+
+    # Build final colors dict: extracted values override defaults
+    colors = dict(DEFAULT_COLORS)
+    colors.update(extracted)
+
+    return {"colors": colors, "font_name": font_name}
+
+
+def apply_template_styles(template_bytes: bytes | None):
+    """
+    Extract styles from template and set them as module-level active styles.
+    Call this ONCE when the template is loaded.
+    """
+    global COLORS, FONT_NAME
+    if template_bytes:
+        styles = extract_template_styles(template_bytes)
+        COLORS = styles["colors"]
+        FONT_NAME = styles["font_name"]
+    else:
+        COLORS = dict(DEFAULT_COLORS)
+        FONT_NAME = DEFAULT_FONT
 
 
 def _set_table_style(table, style_name="Table Grid"):
