@@ -324,26 +324,13 @@ def get_bytes(f):
 
 # ─── SPECIALTIES LIST ────────────────────────────────────────────────────────
 SPECIALTIES = [
-    "Medicina General",
-    "Medicina Interna",
-    "Pediatría",
-    "Ginecología y Obstetricia",
-    "Cirugía General",
-    "Traumatología y Ortopedia",
-    "Cardiología",
-    "Dermatología",
-    "Endocrinología",
-    "Gastroenterología",
-    "Nefrología",
-    "Neumología",
-    "Neurología",
-    "Oftalmología",
-    "Otorrinolaringología",
-    "Psiquiatría",
-    "Urología",
-    "Odontología",
-    "Nutrición",
-    "Rehabilitación",
+    "Medicina General (MEDGEN)",
+    "Medicina General Servicio Social (MEDGEN SS)",
+    "Medicina Interna (MEDINT)",
+    "Pediatría (PEDIA)",
+    "Psicología (PSICO)",
+    "Nutrición (NUTRI)",
+    "Ginecología (GYOBS)",
 ]
 
 # ─── PERIOD GENERATION ───────────────────────────────────────────────────────
