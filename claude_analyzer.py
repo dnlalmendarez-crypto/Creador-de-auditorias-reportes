@@ -318,3 +318,100 @@ def parse_report_sections(report_text: str) -> dict:
         sections[current_section] = flush_buffer()
 
     return sections
+
+
+GENERAL_REPORT_SYSTEM_PROMPT = """Eres un experto en auditoría médica de calidad. Tu tarea es generar un REPORTE GENERAL consolidado que resuma los hallazgos de auditoría de múltiples médicos, agrupados por especialidad.
+
+FORMATO DE SALIDA:
+
+RESUMEN GENERAL DE AUDITORÍA
+"Reporte consolidado del período [PERÍODO]. Se auditaron [N] médicos en [X] especialidad(es).
+
+Hallazgos totales:
+- Total de No Conformidades: [X]
+- Total de Eventos de Riesgo: [Y]
+- Promedio general de cumplimiento: [Z]%
+
+RESULTADOS POR ESPECIALIDAD
+[Para cada especialidad, lista los médicos con sus métricas principales]
+
+**[Especialidad]**
+| Médico | Código | No Conformidades | Eventos de Riesgo | Cumplimiento Promedio |
+[filas con datos]
+
+ANÁLISIS DE TENDENCIAS
+- Especialidades con mayor cantidad de hallazgos
+- Criterios más afectados de forma transversal
+- Médicos con mejor y peor desempeño
+- Áreas prioritarias de intervención
+
+RECOMENDACIONES
+[Recomendaciones generales basadas en los hallazgos consolidados]"
+
+REGLAS:
+- Usa SOLO los datos proporcionados. NO inventes datos.
+- Sé conciso y ejecutivo.
+- Agrupa claramente por especialidad.
+- Destaca patrones comunes entre médicos.
+"""
+
+
+def analyze_general_report(
+    reports_summary: str,
+    period: str,
+    specialty_filter: str = "Todas",
+    api_key: str | None = None,
+    model: str = "claude-opus-4-6",
+    stream_callback=None,
+) -> str:
+    """Generate a consolidated general report from individual report summaries."""
+    key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        raise ValueError("ANTHROPIC_API_KEY not set.")
+
+    client = anthropic.Anthropic(api_key=key)
+
+    filter_text = f"Filtra los resultados para la especialidad: **{specialty_filter}**" if specialty_filter != "Todas" else "Incluye TODAS las especialidades."
+
+    prompt = f"""# SOLICITUD DE REPORTE GENERAL DE AUDITORÍA
+
+## PERÍODO: {period}
+## FILTRO: {filter_text}
+
+---
+
+## DATOS DE REPORTES INDIVIDUALES:
+{reports_summary}
+
+---
+
+## INSTRUCCIONES:
+1. Genera un reporte general consolidado para el período {period}.
+2. {filter_text}
+3. Resume los hallazgos de todos los médicos incluidos.
+4. Identifica tendencias y patrones comunes.
+5. Prioriza las áreas que necesitan intervención.
+
+GENERA EL REPORTE GENERAL AHORA:
+"""
+
+    if stream_callback:
+        full_text = ""
+        with client.messages.stream(
+            model=model,
+            max_tokens=16384,
+            system=GENERAL_REPORT_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            for text_chunk in stream.text_stream:
+                full_text += text_chunk
+                stream_callback(text_chunk)
+        return full_text
+    else:
+        response = client.messages.create(
+            model=model,
+            max_tokens=16384,
+            system=GENERAL_REPORT_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.content[0].text

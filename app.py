@@ -322,13 +322,37 @@ def get_bytes(f):
     return b
 
 
+# ─── SPECIALTIES LIST ────────────────────────────────────────────────────────
+SPECIALTIES = [
+    "Medicina General",
+    "Medicina Interna",
+    "Pediatría",
+    "Ginecología y Obstetricia",
+    "Cirugía General",
+    "Traumatología y Ortopedia",
+    "Cardiología",
+    "Dermatología",
+    "Endocrinología",
+    "Gastroenterología",
+    "Nefrología",
+    "Neumología",
+    "Neurología",
+    "Oftalmología",
+    "Otorrinolaringología",
+    "Psiquiatría",
+    "Urología",
+    "Odontología",
+    "Nutrición",
+    "Rehabilitación",
+]
+
 # ─── PERIOD GENERATION ───────────────────────────────────────────────────────
 current_year = datetime.now().year
 available_years = list(range(current_year - 1, current_year + 2))
 
 
 # ─── MAIN CONTENT ─────────────────────────────────────────────────────────────
-tab1, tab2, tab3 = st.tabs(["📋 Generar Reportes", "📄 Ver Reportes Generados", "ℹ️ Ayuda"])
+tab1, tab2, tab4, tab3 = st.tabs(["📋 Generar Reportes", "📄 Ver Reportes Generados", "📊 Reporte General", "ℹ️ Ayuda"])
 
 with tab1:
     st.markdown("### 📅 Período de Auditoría")
@@ -367,10 +391,12 @@ with tab1:
 
     st.markdown("### 👨‍⚕️ Configuración de Médicos y Especialidad")
 
-    specialty_input = st.text_input(
+    specialty_input = st.selectbox(
         "Especialidad",
-        value="Medicina General",
+        options=SPECIALTIES,
+        index=0,
         help="Especialidad médica para buscar en la hoja correspondiente",
+        key="specialty_tab1",
     )
 
     st.markdown("#### Médicos a Auditar")
@@ -663,6 +689,130 @@ with tab2:
         if st.button("🗑️ Limpiar Reportes de Sesión", type="secondary"):
             st.session_state.generated_reports = {}
             st.rerun()
+
+
+with tab4:
+    st.markdown("### 📊 Reporte General por Especialidad")
+    st.caption("Genera un reporte consolidado a partir de los reportes individuales ya generados en esta sesión.")
+
+    if not st.session_state.generated_reports:
+        st.info("No hay reportes generados aún. Primero genera reportes individuales en la pestaña 'Generar Reportes'.")
+    else:
+        # Collect specialties from generated reports
+        gen_reports = st.session_state.generated_reports
+        report_count = len(gen_reports)
+        st.success(f"Se encontraron **{report_count}** reporte(s) generado(s) en esta sesión.")
+
+        # Specialty filter
+        gen_specialty_options = ["Todas"] + SPECIALTIES
+        gen_specialty = st.selectbox(
+            "Filtrar por especialidad",
+            options=gen_specialty_options,
+            index=0,
+            key="gen_report_specialty",
+            help="Selecciona una especialidad para filtrar o 'Todas' para incluir todos los médicos.",
+        )
+
+        # Period from last generated report
+        gen_period = list(gen_reports.values())[0]["period"]
+        st.info(f"Período del reporte: **{gen_period}**")
+
+        # Show which reports will be included
+        st.markdown("#### Reportes a incluir:")
+        for code, rdata in gen_reports.items():
+            st.markdown(f"- **{rdata['name']}** ({code}) — {rdata['period']}")
+
+        if not api_key:
+            st.warning("⚠️ Ingresa tu API Key de Anthropic en el panel lateral.")
+        elif st.button("📊 Generar Reporte General", type="primary", use_container_width=True, key="gen_general"):
+            # Build summary from all individual reports
+            summaries = []
+            for code, rdata in gen_reports.items():
+                summaries.append(
+                    f"### Médico: {rdata['name']} (Código: {code})\n"
+                    f"Período: {rdata['period']}\n\n"
+                    f"{rdata['report_text']}\n\n---\n"
+                )
+            combined_summary = "\n".join(summaries)
+
+            progress_gen = st.progress(0)
+            status_gen = st.empty()
+            preview_gen = st.empty()
+
+            status_gen.info("🤖 Generando reporte general consolidado...")
+            progress_gen.progress(20)
+
+            gen_parts = []
+
+            def gen_stream_cb(chunk):
+                gen_parts.append(chunk)
+                current = "".join(gen_parts)
+                preview_gen.markdown(
+                    f"**Vista previa:**\n\n```\n{current[-2000:]}\n```"
+                )
+
+            try:
+                general_text = ca.analyze_general_report(
+                    reports_summary=combined_summary,
+                    period=gen_period,
+                    specialty_filter=gen_specialty,
+                    api_key=api_key,
+                    model=selected_model,
+                    stream_callback=gen_stream_cb,
+                )
+                progress_gen.progress(80)
+                status_gen.info("📝 Generando documento Word...")
+
+                # Generate Word doc for general report
+                gen_docx_bytes = rg.generate_full_report_from_text(
+                    doctor_name="REPORTE GENERAL",
+                    doctor_code=gen_specialty if gen_specialty != "Todas" else "TODAS",
+                    period=gen_period,
+                    full_report_text=general_text,
+                    specialty=gen_specialty if gen_specialty != "Todas" else "Todas las Especialidades",
+                    template_bytes=st.session_state.template_bytes,
+                )
+
+                safe_spec = "".join(c if c.isalnum() or c in " _-" else "_" for c in gen_specialty)
+                gen_filename = f"Reporte_General_{safe_spec}_{gen_period[:10].replace(' ', '_')}.docx"
+
+                progress_gen.progress(100)
+                status_gen.success("Reporte general generado exitosamente.")
+
+                col_dl1, col_dl2 = st.columns(2)
+                with col_dl1:
+                    st.download_button(
+                        label="⬇️ Descargar Reporte General (.docx)",
+                        data=gen_docx_bytes,
+                        file_name=gen_filename,
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        key="dl_general",
+                    )
+                with col_dl2:
+                    if drive_folder_input.strip() and st.session_state.get("gcp_creds"):
+                        if st.button("☁️ Subir a Drive", key="drive_general"):
+                            try:
+                                import google_sheets_loader as gsl
+                                folder_id = gsl.extract_folder_id(drive_folder_input.strip())
+                                with st.spinner("Subiendo a Google Drive..."):
+                                    link = gsl.upload_file_to_drive(
+                                        credentials_info=st.session_state["gcp_creds"],
+                                        file_bytes=gen_docx_bytes,
+                                        filename=gen_filename,
+                                        folder_id=folder_id,
+                                    )
+                                st.success(f"[Abrir en Drive]({link})")
+                            except Exception as drive_err:
+                                st.error(f"Error subiendo a Drive: {drive_err}")
+
+                # Show full text
+                with st.expander("Ver texto completo del reporte general", expanded=False):
+                    st.text_area("Contenido", value=general_text, height=500, disabled=True, key="gen_text_view")
+
+            except Exception as e:
+                progress_gen.progress(0)
+                status_gen.error(f"❌ Error generando reporte general: {str(e)}")
+                st.exception(e)
 
 
 with tab3:
