@@ -386,7 +386,7 @@ def _add_cover_table(doc: Document, doctor_name: str, doctor_code: str, period: 
 
 
 def _add_section_banner(doc: Document, title: str):
-    """Add a bold colored section banner paragraph."""
+    """Add a bold colored section banner with background shading (e.g. REPORTE DE CUMPLIMIENTO)."""
     para = doc.add_paragraph()
     para.alignment = WD_ALIGN_PARAGRAPH.LEFT
     # Add shading via XML
@@ -399,6 +399,28 @@ def _add_section_banner(doc: Document, title: str):
     pPr.append(shd)
     run = para.add_run(f"  {title}  ")
     _set_run_format(run, bold=True, size=12, color=COLORS["header_text"])
+    return para
+
+
+def _add_section_title(doc: Document, title: str, centered: bool = True, underline: bool = True, size: int = 14):
+    """Add a section title without background — bold, dark blue, optionally centered and underlined.
+    Used for RESUMEN EJECUTIVO, ANÁLISIS DE NO CONFORMIDADES, etc."""
+    para = doc.add_paragraph()
+    para.alignment = WD_ALIGN_PARAGRAPH.CENTER if centered else WD_ALIGN_PARAGRAPH.LEFT
+    run = para.add_run(title)
+    _set_run_format(run, bold=True, size=size, color=COLORS["header_bg"])
+    if underline:
+        run.underline = True
+    return para
+
+
+def _add_subsection_title(doc: Document, title: str, size: int = 12):
+    """Add a subsection title — bold, dark blue, left-aligned, no background.
+    Used for ANÁLISIS CUANTITATIVO, ANÁLISIS CUALITATIVO, etc."""
+    para = doc.add_paragraph()
+    para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    run = para.add_run(title)
+    _set_run_format(run, bold=True, size=size, color=COLORS["header_bg"])
     return para
 
 
@@ -579,7 +601,11 @@ def _add_compliance_table(doc: Document, compliance_text: str):
 
 
 def _add_body_text(doc: Document, text: str):
-    """Add body text with basic markdown-like formatting."""
+    """
+    Add body text converting markdown formatting to proper Word formatting.
+    Handles: headings (# ## ###), bold (**text**), underline ([text]{.underline}),
+    numbered lists, bullet points, separators, and plain text.
+    """
     lines = text.split("\n")
     for line in lines:
         stripped = line.strip()
@@ -592,28 +618,80 @@ def _add_body_text(doc: Document, text: str):
             _add_separator(doc)
             continue
 
+        # ── Markdown headings → Word headings ────────────────────────────
+        heading_match = re.match(r"^(#{1,4})\s+(.+)$", stripped)
+        if heading_match:
+            level = len(heading_match.group(1))
+            heading_text = _strip_markdown(heading_match.group(2))
+            _add_heading(doc, heading_text, level=min(level, 3))
+            continue
+
+        # ── Numbered list items (e.g. "1. ANAMNESIS") ────────────────────
+        # Keep the number but render as bold heading if ALL CAPS
+        num_match = re.match(r"^(\d+\.)\s+(.+)$", stripped)
+        if num_match and num_match.group(2).replace(" ", "").isupper():
+            para = doc.add_paragraph()
+            para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            heading_text = _strip_markdown(f"{num_match.group(1)} {num_match.group(2)}")
+            run = para.add_run(heading_text)
+            _set_run_format(run, bold=True, size=12, color=COLORS["header_bg"])
+            continue
+
+        # ── Bullet points (- or •) ───────────────────────────────────────
+        bullet_match = re.match(r"^[-•]\s+(.+)$", stripped)
+        if bullet_match:
+            para = doc.add_paragraph()
+            para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            _add_formatted_runs(para, "• " + bullet_match.group(1))
+            continue
+
+        # ── Regular paragraph ─────────────────────────────────────────────
         para = doc.add_paragraph()
         para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        _add_formatted_runs(para, stripped)
 
-        # First handle [text]{.underline} markers, then **bold**
-        # Process: split by underline markers first, then bold within each part
-        underline_parts = re.split(r"(\[[^\]]+\]\{\.underline\})", stripped)
-        for u_part in underline_parts:
-            underline_match = re.match(r"\[([^\]]+)\]\{\.underline\}", u_part)
-            if underline_match:
-                run = para.add_run(underline_match.group(1))
-                _set_run_format(run, bold=True, size=11)
-                run.underline = True
-            else:
-                # Handle **bold** markers within non-underline parts
-                bold_parts = re.split(r"(\*\*[^*]+\*\*)", u_part)
-                for part in bold_parts:
-                    if part.startswith("**") and part.endswith("**"):
-                        run = para.add_run(part[2:-2])
-                        _set_run_format(run, bold=True, size=11)
-                    else:
-                        run = para.add_run(part)
-                        _set_run_format(run, size=11)
+
+def _strip_markdown(text: str) -> str:
+    """Remove all markdown formatting characters, returning clean text."""
+    # Remove [text]{.underline} → text
+    text = re.sub(r"\[([^\]]+)\]\{\.underline\}", r"\1", text)
+    # Remove **bold** → bold
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+    # Remove *italic* → italic
+    text = re.sub(r"\*([^*]+)\*", r"\1", text)
+    # Remove remaining stray * or #
+    text = text.replace("*", "").strip()
+    return text
+
+
+def _add_formatted_runs(para, text: str):
+    """
+    Parse inline markdown in text and add properly formatted runs to paragraph.
+    Handles **bold**, [text]{.underline}, and plain text.
+    """
+    # Split by underline markers and bold markers
+    # Pattern order: underline first, then bold
+    pattern = re.compile(r"(\[[^\]]+\]\{\.underline\}|\*\*[^*]+\*\*)")
+    parts = pattern.split(text)
+
+    for part in parts:
+        if not part:
+            continue
+        underline_match = re.match(r"\[([^\]]+)\]\{\.underline\}", part)
+        if underline_match:
+            run = para.add_run(underline_match.group(1))
+            _set_run_format(run, bold=True, size=11)
+            run.underline = True
+            continue
+        if part.startswith("**") and part.endswith("**"):
+            run = para.add_run(part[2:-2])
+            _set_run_format(run, bold=True, size=11)
+            continue
+        # Clean any remaining stray markdown
+        clean = part.replace("*", "")
+        if clean:
+            run = para.add_run(clean)
+            _set_run_format(run, size=11)
 
 
 def _add_separator(doc: Document):
@@ -662,7 +740,7 @@ def generate_report_docx(
 
     # ── 1. RESUMEN EJECUTIVO ─────────────────────────────────────────────────
     if report_sections.get("resumen_ejecutivo"):
-        _add_section_banner(doc, "RESUMEN EJECUTIVO")
+        _add_section_title(doc, "RESUMEN EJECUTIVO", centered=True, underline=True)
         _add_body_text(doc, report_sections["resumen_ejecutivo"])
 
     # ── 2. REPORTE DE CUMPLIMIENTO POR CRITERIO ─────────────────────────────
@@ -680,7 +758,8 @@ def generate_report_docx(
 
     # ── 3. COMENTARIO DE SEGUIMIENTO ─────────────────────────────────────────
     if report_sections.get("seguimiento"):
-        _add_section_banner(doc, "COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERÍODOS")
+        _add_section_title(doc, "COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERÍODOS",
+                           centered=True, underline=True)
         _add_body_text(doc, report_sections["seguimiento"])
 
     # ── 4. ANÁLISIS DE NO CONFORMIDADES ────────────────────────────────────
@@ -688,26 +767,27 @@ def generate_report_docx(
 
     # ── 4a. ANÁLISIS CUANTITATIVO ──────────────────────────────────────────
     if report_sections.get("cuantitativo"):
-        _add_section_banner(doc, "ANÁLISIS DE NO CONFORMIDADES")
+        _add_section_title(doc, "ANÁLISIS DE NO CONFORMIDADES",
+                           centered=False, underline=False, size=14)
         doc.add_paragraph()
-        _add_section_banner(doc, "ANÁLISIS CUANTITATIVO")
+        _add_subsection_title(doc, "ANÁLISIS CUANTITATIVO", size=12)
         _add_quantitative_table(doc, report_sections["cuantitativo"])
 
     # ── 4b. ANÁLISIS CUALITATIVO ───────────────────────────────────────────
     if report_sections.get("cualitativo") or report_sections.get("no_conformidades"):
-        _add_section_banner(doc, "ANÁLISIS CUALITATIVO")
+        _add_subsection_title(doc, "ANÁLISIS CUALITATIVO", size=12)
 
         if report_sections.get("cualitativo"):
             _add_body_text(doc, report_sections["cualitativo"])
 
         if report_sections.get("no_conformidades"):
-            _add_heading(doc, "Análisis de No Conformidades", level=2)
+            _add_subsection_title(doc, "Análisis de No Conformidades", size=12)
             _add_body_text(doc, report_sections["no_conformidades"])
 
         _add_separator(doc)
 
         if report_sections.get("eventos_riesgo"):
-            _add_heading(doc, "Análisis de Eventos de Riesgo", level=2)
+            _add_subsection_title(doc, "Análisis de Eventos de Riesgo", size=12)
             _add_body_text(doc, report_sections["eventos_riesgo"])
 
     # ── FOOTER NOTE ───────────────────────────────────────────────────────────
@@ -964,46 +1044,50 @@ def generate_general_report_docx(
 
     # ── TABLA DE PARETO ──────────────────────────────────────────────────
     if sections.get("tabla_pareto"):
-        _add_section_banner(doc, "TABLA DE PARETO — " + specialty.upper())
+        _add_section_title(doc, "TABLA DE PARETO — " + specialty.upper(),
+                           centered=True, underline=True)
         _add_pareto_table(doc, sections["tabla_pareto"])
 
     # ── POCAS CAUSAS VITALES ─────────────────────────────────────────────
     if sections.get("causas_vitales"):
-        _add_section_banner(doc, "POCAS CAUSAS VITALES (PUNTOS CRÍTICOS DE INTERVENCIÓN)")
+        _add_section_title(doc, "POCAS CAUSAS VITALES (PUNTOS CRÍTICOS DE INTERVENCIÓN)",
+                           centered=False, underline=False, size=12)
         _add_body_text(doc, sections["causas_vitales"])
 
     # ── RESUMEN EJECUTIVO ────────────────────────────────────────────────
     if sections.get("resumen_ejecutivo"):
-        _add_section_banner(doc, "RESUMEN EJECUTIVO")
+        _add_section_title(doc, "RESUMEN EJECUTIVO", centered=True, underline=True)
         _add_body_text(doc, sections["resumen_ejecutivo"])
 
     # ── MÉDICOS EN RIESGO Y MEJOR EVALUADOS ──────────────────────────────
     if sections.get("medicos_riesgo"):
-        _add_section_banner(doc, "MÉDICOS EN RIESGO Y MEJOR EVALUADOS")
+        _add_section_title(doc, "MÉDICOS EN RIESGO Y MEJOR EVALUADOS",
+                           centered=False, underline=False, size=12)
         _add_body_text(doc, sections["medicos_riesgo"])
 
     # ── GRÁFICAS DE ANÁLISIS ─────────────────────────────────────────────
     if chart_pareto or chart_accumulated or chart_nc_vs_er:
         doc.add_page_break()
-        _add_section_banner(doc, "GRÁFICAS DE ANÁLISIS")
+        _add_section_title(doc, "GRÁFICAS DE ANÁLISIS",
+                           centered=True, underline=True)
 
     if chart_pareto:
         doc.add_paragraph()
-        _add_heading(doc, "Diagrama de Pareto — Hallazgos del Período", level=2)
+        _add_subsection_title(doc, "Diagrama de Pareto — Hallazgos del Período")
         doc.add_picture(io.BytesIO(chart_pareto), width=Inches(6.0))
         last_para = doc.paragraphs[-1]
         last_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     if chart_accumulated:
         doc.add_paragraph()
-        _add_heading(doc, "Hallazgos Acumulados por Período", level=2)
+        _add_subsection_title(doc, "Hallazgos Acumulados por Período")
         doc.add_picture(io.BytesIO(chart_accumulated), width=Inches(6.0))
         last_para = doc.paragraphs[-1]
         last_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     if chart_nc_vs_er:
         doc.add_paragraph()
-        _add_heading(doc, "Eventos de Riesgo vs No Conformidades", level=2)
+        _add_subsection_title(doc, "Eventos de Riesgo vs No Conformidades")
         doc.add_picture(io.BytesIO(chart_nc_vs_er), width=Inches(5.0))
         last_para = doc.paragraphs[-1]
         last_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
