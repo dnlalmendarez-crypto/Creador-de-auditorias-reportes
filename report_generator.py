@@ -200,6 +200,26 @@ def apply_template_styles(template_bytes: bytes | None):
         FONT_NAME = DEFAULT_FONT
 
 
+def _fix_sectpr_margins(doc: Document):
+    """
+    Sanitize section margin values in the template XML.
+    Some templates produce float twip values (e.g. '1115.669...')
+    which python-docx cannot parse as int. Convert them to int.
+    """
+    for sectPr in doc.element.body.iter(qn("w:sectPr")):
+        pgMar = sectPr.find(qn("w:pgMar"))
+        if pgMar is not None:
+            for attr in ("left", "right", "top", "bottom",
+                         "header", "footer", "gutter"):
+                full_attr = qn("w:" + attr)
+                val = pgMar.get(full_attr)
+                if val is not None:
+                    try:
+                        int(val)
+                    except ValueError:
+                        pgMar.set(full_attr, str(int(float(val))))
+
+
 def _set_table_style(table, style_name="Table Grid"):
     """Safely set a table style, falling back to no style if not available."""
     try:
@@ -618,6 +638,7 @@ def generate_report_docx(
     """
     if template_bytes:
         doc = Document(io.BytesIO(template_bytes))
+        _fix_sectpr_margins(doc)
         # Remove all existing body content from the template, keeping only
         # styles, headers, footers, and page setup as format reference.
         body = doc.element.body
@@ -921,6 +942,7 @@ def generate_general_report_docx(
     """
     if template_bytes:
         doc = Document(io.BytesIO(template_bytes))
+        _fix_sectpr_margins(doc)
         body = doc.element.body
         for child in list(body):
             if child.tag.endswith("}sectPr"):
