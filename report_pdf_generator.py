@@ -454,7 +454,15 @@ def _body_text_to_html(text: str) -> str:
 def _compliance_table_to_html(text: str) -> str:
     """Convert markdown compliance table to HTML with color-coded cells."""
     lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
-    table_lines = [l for l in lines if "|" in l and "---" not in l]
+    # Filter: keep only real table rows (contain |), exclude separator rows (---)
+    # and the "Leyenda:" line which contains | but is not a table row
+    table_lines = [
+        l for l in lines
+        if "|" in l
+        and "---" not in l
+        and not l.lower().startswith("leyenda")
+        and "leyenda:" not in l.lower()
+    ]
     if not table_lines:
         return f"<p>{_esc(text)}</p>"
 

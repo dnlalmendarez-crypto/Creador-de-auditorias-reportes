@@ -88,10 +88,12 @@ Nivel de cumplimiento por criterio evaluado, organizado por Criterio clínico. L
 Leyenda: ROJO (<85% Oportunidad de mejora) | ANARANJADO (85%-94% Aceptable) | AMARILLO (95%-97% Muy Bueno) | VERDE (>=98% Óptimo)
 
 REGLAS del cuadro de cumplimiento:
+- SIEMPRE genera la tabla markdown con pipes (|) aunque solo haya un período. NUNCA omitas esta tabla.
 - Usa EXACTAMENTE los porcentajes del archivo de gráficas. NO los inventes.
 - Si un criterio no aplica, usa "-" en lugar de porcentaje.
 - Incluye TODOS los períodos disponibles en columnas separadas.
 - La columna COMPONENTE debe repetir el nombre del componente en cada fila que le pertenezca.
+- Si no se proporcionaron datos de cumplimiento, genera la tabla con los criterios estándar y usa "-" en todas las columnas de porcentaje.
 
 COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERIODOS
 (Solo si hay 2 o más periodos auditados)
