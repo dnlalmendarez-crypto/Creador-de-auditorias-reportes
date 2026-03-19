@@ -99,6 +99,8 @@ def find_doctor_compliance(
     """
     results = {}
     name_lower = doctor_name.lower().strip()
+    # Build name fragments for partial matching (first name, last name)
+    name_parts = [p for p in name_lower.split() if len(p) > 2]
 
     for sheet_name, df in graficas_data.items():
         if df is None or df.empty:
@@ -117,12 +119,13 @@ def find_doctor_compliance(
                 new_cols.append(c)
         df.columns = new_cols
 
-        # Try to find columns that might be doctor name, code, period
         df_str = df.astype(str)
         cols = list(df.columns)
 
-        # Search by code first if provided
-        if doctor_code:
+        # ── Strategy 1: Search by code ──
+        if doctor_code and sheet_name not in results:
+            code_upper = doctor_code.upper().strip()
+            # Find code column
             code_col = None
             for col in cols:
                 col_str = str(col).lower()
@@ -130,38 +133,59 @@ def find_doctor_compliance(
                     code_col = col
                     break
             if code_col:
-                mask = df_str[code_col].str.upper() == doctor_code.upper()
+                # Exact match
+                mask = df_str[code_col].str.strip().str.upper() == code_upper
+                if not mask.any():
+                    # Partial match (code contained in cell)
+                    mask = df_str[code_col].str.upper().str.contains(
+                        code_upper, na=False, regex=False
+                    )
                 matches = df[mask]
                 if not matches.empty:
-                    if period:
-                        # Try to filter by period
-                        for col in cols:
-                            if period.lower() in str(col).lower():
-                                results[sheet_name] = {
-                                    "rows": matches,
-                                    "period_col": col,
-                                    "sheet": sheet_name,
-                                }
-                                break
-                        else:
-                            results[sheet_name] = {
-                                "rows": matches,
-                                "period_col": None,
-                                "sheet": sheet_name,
-                            }
-                    else:
+                    results[sheet_name] = {
+                        "rows": matches,
+                        "period_col": None,
+                        "sheet": sheet_name,
+                    }
+
+            # Also try scanning ALL cells for the code (some sheets may
+            # not have a clearly-named code column)
+            if sheet_name not in results:
+                for col in cols:
+                    mask = df_str[col].str.strip().str.upper() == code_upper
+                    if mask.any():
                         results[sheet_name] = {
-                            "rows": matches,
+                            "rows": df[mask],
                             "period_col": None,
                             "sheet": sheet_name,
                         }
+                        break
 
-        # Fallback: search by name across all string columns
+        # ── Strategy 2: Search by full name (exact substring) ──
         if sheet_name not in results:
             for col in cols:
                 mask = df_str[col].str.lower().str.contains(
                     name_lower, na=False, regex=False
                 )
+                if mask.any():
+                    results[sheet_name] = {
+                        "rows": df[mask],
+                        "period_col": None,
+                        "sheet": sheet_name,
+                    }
+                    break
+
+        # ── Strategy 3: Search by last name fragments ──
+        if sheet_name not in results and len(name_parts) >= 2:
+            # Try matching with last two name parts (apellidos)
+            for col in cols:
+                col_lower = df_str[col].str.lower()
+                # Match if at least 2 name parts are found in the cell
+                match_count = sum(
+                    col_lower.str.contains(part, na=False, regex=False).astype(int)
+                    for part in name_parts
+                )
+                mask = match_count >= min(2, len(name_parts))
                 if mask.any():
                     results[sheet_name] = {
                         "rows": df[mask],

@@ -527,6 +527,7 @@ with tab1:
                 progress.progress(25)
 
                 compliance_text = "No se encontraron datos de cumplimiento para este médico."
+                compliance_results = {}
                 if graficas_data:
                     compliance_results = dl.find_doctor_compliance(
                         graficas_data, doc_name, doc_code, period_input
@@ -539,6 +540,20 @@ with tab1:
                                 parts.append(f"**Hoja: {sheet}**\n{dl.dataframe_to_markdown_table(rows)}")
                         if parts:
                             compliance_text = "\n\n".join(parts)
+
+                # Debug: show compliance data being sent to Claude
+                with st.expander("🔍 Datos de cumplimiento enviados a Claude", expanded=False):
+                    if graficas_data:
+                        st.caption(f"Hojas disponibles en gráficas: {list(graficas_data.keys())}")
+                        if compliance_results:
+                            for sh, res in compliance_results.items():
+                                rows = res.get("rows")
+                                st.caption(f"Hoja '{sh}': {len(rows)} filas encontradas" if rows is not None else f"Hoja '{sh}': sin filas")
+                        else:
+                            st.warning("No se encontró al médico en ninguna hoja de gráficas")
+                    else:
+                        st.warning("No se cargaron datos de gráficas de cumplimiento")
+                    st.text(compliance_text[:3000] if len(compliance_text) > 3000 else compliance_text)
 
                 # Step 3: Generate AI analysis
                 status_placeholder.info("🤖 Generando análisis con Claude AI...")
