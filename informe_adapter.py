@@ -269,6 +269,7 @@ def build_informe_data(
         "dependencia": "Doctor SV - El Salvador",
         "periodo": period,
         "periodo_codigo": period_code,
+        "spec_abbrev": spec_abbrev,
         # Secciones
         "resumen_ejecutivo": resumen,
         "hallazgos": hallazgos,

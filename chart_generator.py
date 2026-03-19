@@ -97,10 +97,12 @@ def generate_pareto_chart(report_text: str, specialty: str, period: str) -> byte
     fig.tight_layout()
 
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue()
+    try:
+        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+        buf.seek(0)
+        return buf.getvalue()
+    finally:
+        plt.close(fig)
 
 
 def generate_accumulated_chart(
@@ -162,10 +164,12 @@ def generate_accumulated_chart(
 
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue()
+    try:
+        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+        buf.seek(0)
+        return buf.getvalue()
+    finally:
+        plt.close(fig)
 
 
 def generate_nc_vs_er_chart(report_text: str, specialty: str, period: str) -> bytes | None:
@@ -195,7 +199,9 @@ def generate_nc_vs_er_chart(report_text: str, specialty: str, period: str) -> by
 
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue()
+    try:
+        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+        buf.seek(0)
+        return buf.getvalue()
+    finally:
+        plt.close(fig)

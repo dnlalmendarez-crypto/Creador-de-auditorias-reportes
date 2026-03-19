@@ -305,6 +305,8 @@ def analyze_with_claude(
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
+        if not response.content:
+            raise ValueError("Claude returned an empty response")
         return response.content[0].text
 
 
@@ -523,4 +525,6 @@ GENERA EL REPORTE DE PARETO AHORA:
             system=PARETO_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
+        if not response.content:
+            raise ValueError("Claude returned an empty response")
         return response.content[0].text

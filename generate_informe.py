@@ -336,9 +336,13 @@ def generate_informe(data: dict) -> bytes:
     # ── Título del informe ───────────────────────────────────────────────
     titulo = doc.add_paragraph()
     titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    import re as _re
+    _year_match = _re.search(r"20\d{2}", data.get("periodo", ""))
+    _year = _year_match.group(0) if _year_match else str(__import__("datetime").date.today().year)
+    _spec = data.get("spec_abbrev", "MG")
     run = titulo.add_run(
         f"INFORME DE AUDITORÍA N° {data.get('codigo', '')}"
-        f"-MG-2026-{data.get('periodo_codigo', 'P003')}"
+        f"-{_spec}-{_year}-{data.get('periodo_codigo', 'P003')}"
     )
     run.bold = True
     run.font.name = "Arial"
