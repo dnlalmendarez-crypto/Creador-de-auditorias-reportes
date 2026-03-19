@@ -19,6 +19,8 @@ import data_loader as dl
 import claude_analyzer as ca
 import report_generator as rg
 import report_pdf_generator as rpdf
+from generate_informe import generate_informe
+from informe_adapter import build_informe_data
 from period_utils import generate_periods
 
 # ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
@@ -555,17 +557,20 @@ with tab1:
                         stream_callback=stream_cb,
                     )
                     progress.progress(80)
-                    status_placeholder.info("📝 Generando documentos (PDF + Word)...")
+                    status_placeholder.info("📝 Generando documentos (DOCX + PDF)...")
 
-                    # Step 4: Generate Word document
-                    docx_bytes = rg.generate_full_report_from_text(
+                    # Step 4: Parse sections and build structured data
+                    parsed_sections = ca.parse_report_sections(full_report)
+                    informe_data = build_informe_data(
                         doctor_name=doc_name,
                         doctor_code=doc_code,
                         period=period_input,
-                        full_report_text=full_report,
                         specialty=specialty_input,
-                        template_bytes=st.session_state.template_bytes,
+                        sections=parsed_sections,
                     )
+
+                    # Step 4a: Generate DOCX with generate_informe (exact format)
+                    docx_bytes = generate_informe(informe_data)
 
                     # Step 4b: Generate PDF
                     try:
