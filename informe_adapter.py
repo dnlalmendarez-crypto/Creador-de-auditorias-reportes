@@ -15,6 +15,8 @@ import re
 def _strip_md(text: str) -> str:
     """Elimina marcadores markdown de un texto."""
     text = re.sub(r"\[([^\]]+)\]\{\.underline\}", r"\1", text)
+    # Strip raw HTML <u>/<b> tags the AI may generate
+    text = re.sub(r"</?[ub]>", "", text)
     text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
     text = re.sub(r"\*([^*]+)\*", r"\1", text)
     text = re.sub(r"^#{1,4}\s+", "", text, flags=re.MULTILINE)

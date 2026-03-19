@@ -234,6 +234,8 @@ def _get_compliance_color(pct_str: str) -> str:
 def _strip_markdown(text: str) -> str:
     """Remove markdown formatting, returning clean text."""
     text = re.sub(r"\[([^\]]+)\]\{\.underline\}", r"\1", text)
+    # Strip raw HTML <u>/<b> tags the AI may generate
+    text = re.sub(r"</?[ub]>", "", text)
     text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
     text = re.sub(r"\*([^*]+)\*", r"\1", text)
     text = text.replace("*", "")
@@ -244,6 +246,9 @@ def _md_to_html_inline(text: str) -> str:
     """Convert inline markdown (bold, underline) to HTML tags."""
     # [text]{.underline} → <u><b>text</b></u>
     text = re.sub(r"\[([^\]]+)\]\{\.underline\}", r"<u><b>\1</b></u>", text)
+    # Restore escaped <u>/<b> tags that the AI may have generated directly
+    text = re.sub(r"&lt;u&gt;(.*?)&lt;/u&gt;", r"<u>\1</u>", text)
+    text = re.sub(r"&lt;b&gt;(.*?)&lt;/b&gt;", r"<b>\1</b>", text)
     # **bold** → <b>bold</b>
     text = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", text)
     # Clean stray asterisks

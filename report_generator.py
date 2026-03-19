@@ -655,6 +655,8 @@ def _strip_markdown(text: str) -> str:
     """Remove all markdown formatting characters, returning clean text."""
     # Remove [text]{.underline} → text
     text = re.sub(r"\[([^\]]+)\]\{\.underline\}", r"\1", text)
+    # Strip raw HTML <u>/<b> tags the AI may generate
+    text = re.sub(r"</?[ub]>", "", text)
     # Remove **bold** → bold
     text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
     # Remove *italic* → italic
@@ -667,8 +669,12 @@ def _strip_markdown(text: str) -> str:
 def _add_formatted_runs(para, text: str):
     """
     Parse inline markdown in text and add properly formatted runs to paragraph.
-    Handles **bold**, [text]{.underline}, and plain text.
+    Handles **bold**, [text]{.underline}, <u>text</u>, and plain text.
     """
+    # Normalize raw HTML <u>text</u> to [text]{.underline} for uniform handling
+    text = re.sub(r"<u>(.*?)</u>", r"[\1]{.underline}", text)
+    # Normalize raw HTML <b>text</b> to **text** for uniform handling
+    text = re.sub(r"<b>(.*?)</b>", r"**\1**", text)
     # Split by underline markers and bold markers
     # Pattern order: underline first, then bold
     pattern = re.compile(r"(\[[^\]]+\]\{\.underline\}|\*\*[^*]+\*\*)")
