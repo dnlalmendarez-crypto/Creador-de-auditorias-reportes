@@ -21,11 +21,12 @@ Especificaciones extraídas del DOCX original:
 """
 
 import io
+import base64
 from docx import Document
-from docx.shared import Pt, RGBColor, Cm, Twips
+from docx.shared import Pt, RGBColor, Cm, Twips, Emu
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_ALIGN_VERTICAL
-from docx.oxml.ns import qn
+from docx.oxml.ns import qn, nsdecls
 from docx.oxml import OxmlElement
 from lxml import etree
 
@@ -172,6 +173,110 @@ def _configure_document(doc: Document):
     style = doc.styles["Normal"]
     style.font.name = "Arial"
     style.font.size = Pt(10)
+
+
+def _add_page_header(doc: Document):
+    """Add DoctorSV logo (left) + UNIDAD DE GESTIÓN DE MEJORA CONTINUA (right)
+    to the page header, matching the institutional template."""
+    section = doc.sections[0]
+    header = section.header
+    header.is_linked_to_previous = False
+
+    # Create a two-column table for left/right alignment in header
+    tbl = header.add_table(rows=1, cols=2, width=Twips(10080))
+    tbl.autofit = True
+    # Remove table borders
+    tbl_xml = tbl._tbl
+    tblPr = tbl_xml.tblPr if tbl_xml.tblPr is not None else OxmlElement("w:tblPr")
+    borders = OxmlElement("w:tblBorders")
+    for border_name in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        border_el = OxmlElement(f"w:{border_name}")
+        border_el.set(qn("w:val"), "none")
+        border_el.set(qn("w:sz"), "0")
+        border_el.set(qn("w:space"), "0")
+        border_el.set(qn("w:color"), "auto")
+        borders.append(border_el)
+    tblPr.append(borders)
+
+    # Left cell: DoctorSV logo text
+    left_cell = tbl.cell(0, 0)
+    left_p = left_cell.paragraphs[0]
+    left_p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    run_doctor = left_p.add_run("Doctor")
+    run_doctor.bold = True
+    run_doctor.font.name = "Arial"
+    run_doctor.font.size = Pt(14)
+    run_doctor.font.color.rgb = RGBColor(0x1F, 0x39, 0x64)
+    run_sv = left_p.add_run("SV")
+    run_sv.bold = True
+    run_sv.font.name = "Arial"
+    run_sv.font.size = Pt(14)
+    run_sv.font.color.rgb = RGBColor(0x2E, 0x74, 0xB5)
+
+    # Right cell: Institutional text
+    right_cell = tbl.cell(0, 1)
+    right_p = right_cell.paragraphs[0]
+    right_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    run_ugmc = right_p.add_run("UNIDAD DE GESTIÓN DE MEJORA CONTINUA")
+    run_ugmc.bold = True
+    run_ugmc.font.name = "Arial"
+    run_ugmc.font.size = Pt(7)
+    run_ugmc.font.color.rgb = RGBColor(0x2E, 0x74, 0xB5)
+
+
+def _add_watermark(doc: Document):
+    """Add a faint diagonal text watermark 'DoctorSV' using Word's standard
+    VML watermark mechanism embedded in the header."""
+    section = doc.sections[0]
+    header = section.header
+    header.is_linked_to_previous = False
+
+    watermark_p = header.add_paragraph()
+    watermark_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    r_elem = OxmlElement("w:r")
+    pict = OxmlElement("w:pict")
+
+    # VML shapetype for text watermark
+    ns = 'xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"'
+    shapetype_xml = (
+        f'<v:shapetype {ns} id="_x0000_t136" coordsize="21600,21600" '
+        'o:spt="136" adj="10800" '
+        'path="m@7,l@8,m@5,21600l@6,21600e">'
+        '<v:formulas><v:f eqn="sum #0 0 10800"/>'
+        '<v:f eqn="prod #0 2 1"/><v:f eqn="sum 21600 0 @1"/>'
+        '<v:f eqn="sum 0 0 @2"/><v:f eqn="sum 21600 0 @3"/>'
+        '<v:f eqn="if @0 @3 0"/><v:f eqn="if @0 21600 @1"/>'
+        '<v:f eqn="if @0 0 @2"/><v:f eqn="if @0 @4 21600"/>'
+        '</v:formulas>'
+        '<v:path textpathok="t" o:connecttype="custom" '
+        'o:connectlocs="@9,0;@10,10800;@11,21600;@12,10800" '
+        'o:connectangles="270,180,90,0"/>'
+        '<v:textpath on="t" fitshape="t"/>'
+        '<v:handles><v:h position="#0,bottomRight" xrange="6629,14971"/>'
+        '</v:handles><o:lock v:ext="edit" text="t" shapetype="t"/>'
+        '</v:shapetype>'
+    )
+    pict.append(etree.fromstring(shapetype_xml))
+
+    # VML shape for the actual watermark text
+    shape_xml = (
+        f'<v:shape {ns} id="PowerPlusWaterMarkObject" '
+        'o:spid="_x0000_s2049" type="#_x0000_t136" '
+        'style="position:absolute;margin-left:0;margin-top:0;'
+        'width:500pt;height:120pt;rotation:315;z-index:-251657216;'
+        'mso-position-horizontal:center;mso-position-horizontal-relative:margin;'
+        'mso-position-vertical:center;mso-position-vertical-relative:margin" '
+        'o:allowincell="f" fillcolor="#D0D0D0" stroked="f">'
+        '<v:fill opacity=".15"/>'
+        '<v:textpath style=\'font-family:"Arial";font-size:1pt\' '
+        'string="DoctorSV"/>'
+        '</v:shape>'
+    )
+    pict.append(etree.fromstring(shape_xml))
+
+    r_elem.append(pict)
+    watermark_p._p.append(r_elem)
 
 
 # ─── SECCIÓN 1: TABLA DE ENCABEZADO ─────────────────────────────────────────
@@ -332,6 +437,10 @@ def generate_informe(data: dict) -> bytes:
     """
     doc = Document()
     _configure_document(doc)
+
+    # ── Encabezado de página + marca de agua ──
+    _add_page_header(doc)
+    _add_watermark(doc)
 
     # ── Título del informe ───────────────────────────────────────────────
     titulo = doc.add_paragraph()
