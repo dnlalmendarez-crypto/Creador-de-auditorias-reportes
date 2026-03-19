@@ -18,6 +18,7 @@ load_dotenv()
 import data_loader as dl
 import claude_analyzer as ca
 import report_generator as rg
+import report_pdf_generator as rpdf
 from period_utils import generate_periods
 
 # ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
@@ -554,7 +555,7 @@ with tab1:
                         stream_callback=stream_cb,
                     )
                     progress.progress(80)
-                    status_placeholder.info("📝 Generando documento Word...")
+                    status_placeholder.info("📝 Generando documentos (PDF + Word)...")
 
                     # Step 4: Generate Word document
                     docx_bytes = rg.generate_full_report_from_text(
@@ -566,25 +567,50 @@ with tab1:
                         template_bytes=st.session_state.template_bytes,
                     )
 
+                    # Step 4b: Generate PDF
+                    try:
+                        pdf_bytes = rpdf.generate_full_report_pdf_from_text(
+                            doctor_name=doc_name,
+                            doctor_code=doc_code,
+                            period=period_input,
+                            full_report_text=full_report,
+                            specialty=specialty_input,
+                        )
+                    except Exception as pdf_err:
+                        pdf_bytes = None
+                        st.warning(f"PDF no disponible: {pdf_err}")
+
                     # Store in session
                     safe_name = "".join(c if c.isalnum() or c in " _-" else "_" for c in doc_name)
-                    filename = f"Reporte_Auditoria_{safe_name}_{doc_code}_{period_input[:10].replace(' ', '_')}.docx"
+                    filename_docx = f"Reporte_Auditoria_{safe_name}_{doc_code}_{period_input[:10].replace(' ', '_')}.docx"
+                    filename_pdf = filename_docx.replace(".docx", ".pdf")
                     st.session_state.generated_reports[doc_code] = {
                         "name": doc_name,
                         "code": doc_code,
                         "period": period_input,
-                        "filename": filename,
+                        "filename": filename_docx,
+                        "filename_pdf": filename_pdf,
                         "docx_bytes": docx_bytes,
+                        "pdf_bytes": pdf_bytes,
                         "report_text": full_report,
                     }
 
                     progress.progress(100)
                     status_placeholder.success(f"✅ Reporte generado exitosamente para {doc_name}")
 
-                    st.download_button(
-                        label=f"⬇️ Descargar Reporte - {doc_name}",
+                    col_pdf, col_docx = st.columns(2)
+                    if pdf_bytes:
+                        col_pdf.download_button(
+                            label=f"⬇️ PDF - {doc_name}",
+                            data=pdf_bytes,
+                            file_name=filename_pdf,
+                            mime="application/pdf",
+                            key=f"dl_pdf_{doc_code}",
+                        )
+                    col_docx.download_button(
+                        label=f"⬇️ DOCX - {doc_name}",
                         data=docx_bytes,
-                        file_name=filename,
+                        file_name=filename_docx,
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         key=f"dl_{doc_code}",
                     )
@@ -620,6 +646,9 @@ with tab1:
                 with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
                     for code, rdata in st.session_state.generated_reports.items():
                         zf.writestr(rdata["filename"], rdata["docx_bytes"])
+                        if rdata.get("pdf_bytes"):
+                            zf.writestr(rdata.get("filename_pdf", rdata["filename"].replace(".docx", ".pdf")),
+                                        rdata["pdf_bytes"])
                 zip_buffer.seek(0)
 
                 st.download_button(
@@ -649,8 +678,16 @@ with tab2:
                         key=f"view_{code}",
                     )
                 with col2:
+                    if rdata.get("pdf_bytes"):
+                        st.download_button(
+                            label="⬇️ Descargar PDF",
+                            data=rdata["pdf_bytes"],
+                            file_name=rdata.get("filename_pdf", rdata["filename"].replace(".docx", ".pdf")),
+                            mime="application/pdf",
+                            key=f"dl2_pdf_{code}",
+                        )
                     st.download_button(
-                        label="⬇️ Descargar .docx",
+                        label="⬇️ Descargar DOCX",
                         data=rdata["docx_bytes"],
                         file_name=rdata["filename"],
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -799,7 +836,7 @@ with tab4:
             chart_nc_er = cg.generate_nc_vs_er_chart(general_text, gen_specialty, gen_period)
 
             progress_gen.progress(80)
-            status_gen.info("📝 Generando documento Word...")
+            status_gen.info("📝 Generando documentos (PDF + Word)...")
 
             # Generate Word doc
             gen_docx_bytes = rg.generate_general_report_docx(
@@ -812,8 +849,23 @@ with tab4:
                 template_bytes=st.session_state.template_bytes,
             )
 
+            # Generate PDF
+            try:
+                gen_pdf_bytes = rpdf.generate_general_report_pdf(
+                    report_text=general_text,
+                    specialty=gen_specialty,
+                    period=gen_period,
+                    chart_pareto=chart_pareto,
+                    chart_accumulated=chart_accumulated,
+                    chart_nc_vs_er=chart_nc_er,
+                )
+            except Exception as pdf_err:
+                gen_pdf_bytes = None
+                st.warning(f"PDF no disponible: {pdf_err}")
+
             safe_spec = "".join(c if c.isalnum() or c in " _-" else "_" for c in gen_specialty)
             gen_filename = f"Reporte_Pareto_{safe_spec}_{gen_period[:10].replace(' ', '_')}.docx"
+            gen_filename_pdf = gen_filename.replace(".docx", ".pdf")
 
             progress_gen.progress(100)
             status_gen.success("Reporte de Pareto generado exitosamente.")
@@ -829,6 +881,14 @@ with tab4:
             st.markdown("---")
             col_dl1, col_dl2 = st.columns(2)
             with col_dl1:
+                if gen_pdf_bytes:
+                    st.download_button(
+                        label="⬇️ Descargar Reporte de Pareto (.pdf)",
+                        data=gen_pdf_bytes,
+                        file_name=gen_filename_pdf,
+                        mime="application/pdf",
+                        key="dl_general_pdf",
+                    )
                 st.download_button(
                     label="⬇️ Descargar Reporte de Pareto (.docx)",
                     data=gen_docx_bytes,
