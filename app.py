@@ -328,6 +328,16 @@ def get_bytes(f):
     return b
 
 
+def _file_hash(f):
+    """Return MD5 hash of file content for stable cache keys."""
+    if f is None:
+        return None
+    import hashlib
+    b = f.read()
+    f.seek(0)
+    return hashlib.md5(b).hexdigest()
+
+
 # ─── SPECIALTIES LIST ────────────────────────────────────────────────────────
 SPECIALTIES = [
     "Medicina General (MEDGEN)",
@@ -464,8 +474,8 @@ with tab1:
             else:
                 with st.spinner("Cargando archivos..."):
                     file_cache = get_file_data(
-                        id(clasificacion_file), id(tipificaciones_file),
-                        id(graficas_file), id(base_datos_file),
+                        _file_hash(clasificacion_file), _file_hash(tipificaciones_file),
+                        _file_hash(graficas_file), _file_hash(base_datos_file),
                         get_bytes(clasificacion_file), get_bytes(tipificaciones_file),
                         get_bytes(graficas_file), get_bytes(base_datos_file),
                     )
@@ -630,7 +640,7 @@ with tab1:
                                     link = gsl.upload_file_to_drive(
                                         credentials_info=st.session_state["gcp_creds"],
                                         file_bytes=docx_bytes,
-                                        filename=filename,
+                                        filename=filename_docx,
                                         folder_id=folder_id,
                                     )
                                 st.success(f"Subido a Drive: [Abrir archivo]({link})")
@@ -780,8 +790,8 @@ with tab4:
         else:
             with st.spinner("Cargando archivos..."):
                 file_cache_gen = get_file_data(
-                    id(clasificacion_file), id(tipificaciones_file),
-                    id(graficas_file), id(base_datos_file),
+                    _file_hash(clasificacion_file), _file_hash(tipificaciones_file),
+                    _file_hash(graficas_file), _file_hash(base_datos_file),
                     get_bytes(clasificacion_file), get_bytes(tipificaciones_file),
                     get_bytes(graficas_file), get_bytes(base_datos_file),
                 )
