@@ -128,9 +128,9 @@ No conformidades Identificadas: ([N]):
 
 Tipificación: [Texto exacto del diccionario de tipificaciones]
 
-Hallazgos: En [las/la] consulta(s) auditada(s) (ID [lista de IDs]) el médico [descripción detallada del hallazgo para CADA consulta, correlacionando con el diagnóstico específico de cada una]. En [Diagnóstico] (ID) [detalle específico]; en [Diagnóstico] (ID) [detalle específico]; ...
+Hallazgos: En [las/la] consulta(s) auditada(s) (ID [lista de IDs]) el médico [descripción sintetizada del hallazgo, correlacionando con el diagnóstico]. MÁXIMO 5 LÍNEAS DE TEXTO.
 
-Impacto en la atención: [Descripción del impacto clínico real y potencial en el paciente, específico a la tipificación].
+Impacto en la atención: [Descripción sintetizada del impacto clínico real y potencial en el paciente]. MÁXIMO 5 LÍNEAS DE TEXTO.
 
 [Siguiente criterio del mismo componente si aplica...]
 
@@ -142,9 +142,9 @@ No conformidades Identificadas: ([N]):
 
 Tipificación: [Texto exacto]
 
-Hallazgos: [Detalle por consulta con correlación diagnóstica]
+Hallazgos: [Detalle sintetizado por consulta con correlación diagnóstica — máximo 5 líneas]
 
-Impacto en la atención: [Descripción del impacto]
+Impacto en la atención: [Descripción sintetizada del impacto — máximo 5 líneas]
 
 ...continúa hasta completar todos los componentes afectados...
 
@@ -162,9 +162,9 @@ Evento de Riesgo Identificado: ([N]):
 
 Tipificación: [Texto exacto del diccionario de tipificaciones]
 
-Hallazgos: En [las/la] consulta(s) (ID [lista]) [descripción detallada por consulta con correlación diagnóstica].
+Hallazgos: En [las/la] consulta(s) (ID [lista]) [descripción sintetizada por consulta con correlación diagnóstica]. MÁXIMO 5 LÍNEAS DE TEXTO.
 
-Impacto en la atención: [Descripción del impacto].
+Impacto en la atención: [Descripción sintetizada del impacto]. MÁXIMO 5 LÍNEAS DE TEXTO.
 
 [Siguiente criterio si aplica...]
 
@@ -177,7 +177,8 @@ Impacto en la atención: [Descripción del impacto].
 IMPORTANTE sobre el formato:
 - ESTRICTAMENTE, sigue el formato línea por línea como se especifica arriba.
 - Cada tipificación debe tener su propio bloque de Tipificación + Hallazgos + Impacto.
-- Los hallazgos SIEMPRE deben detallar CADA consulta individualmente con su ID y diagnóstico.
+- Los hallazgos SIEMPRE deben detallar CADA consulta individualmente con su ID y diagnóstico, pero de forma SINTETIZADA (máximo 5 líneas de texto por bloque de Hallazgos).
+- El Impacto en la atención debe ser conciso y directo (máximo 5 líneas de texto por bloque).
 - El Resumen Ejecutivo NO debe tener tablas ni análisis extendido.
 - Tono: Ejecutivo, urgente pero profesional. Evita rodeos innecesarios.
 - El número de informe sigue el formato: [CÓDIGO]-[ABREV_ESP]-[AÑO]-P[NÚM_PERÍODO] (ej: 000FV1-MG-2026-P003)
