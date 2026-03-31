@@ -10,7 +10,7 @@ import io
 import json
 import zipfile
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -360,33 +360,86 @@ tab1, tab2, tab4, tab3 = st.tabs(["📋 Generar Reportes", "📄 Ver Reportes Ge
 with tab1:
     st.markdown("### 📅 Período de Auditoría")
 
-    col_year, col_period = st.columns([1, 3])
-    with col_year:
-        selected_year = st.selectbox("Año", available_years, index=available_years.index(current_year))
+    # ── Period selection mode ──
+    period_mode = st.radio(
+        "Método de selección de período",
+        ["Período quincenal", "Selección por fechas"],
+        horizontal=True,
+        help="Elige entre un período quincenal predefinido o un rango de fechas personalizado",
+    )
 
-    periods = generate_periods(selected_year)
-    period_labels = [p["label"] for p in periods]
+    if period_mode == "Período quincenal":
+        col_year, col_period = st.columns([1, 3])
+        with col_year:
+            selected_year = st.selectbox("Año", available_years, index=available_years.index(current_year))
 
-    # Default to a recent period based on current date
-    default_idx = 0
-    now = datetime.now()
-    if selected_year == now.year:
-        month_idx = (now.month - 1) * 2
-        if now.day > 15:
-            month_idx += 1
-        default_idx = min(month_idx, len(periods) - 1)
+        periods = generate_periods(selected_year)
+        period_labels = [p["label"] for p in periods]
 
-    with col_period:
-        selected_period_label = st.selectbox(
-            "Período de Auditoría",
-            period_labels,
-            index=default_idx,
-            help="Selecciona el período quincenal a auditar",
-        )
+        # Default to a recent period based on current date
+        default_idx = 0
+        now = datetime.now()
+        if selected_year == now.year:
+            month_idx = (now.month - 1) * 2
+            if now.day > 15:
+                month_idx += 1
+            default_idx = min(month_idx, len(periods) - 1)
 
-    # Get selected period info
-    selected_period = next(p for p in periods if p["label"] == selected_period_label)
-    period_input = selected_period["short_label"]
+        with col_period:
+            selected_period_label = st.selectbox(
+                "Período de Auditoría",
+                period_labels,
+                index=default_idx,
+                help="Selecciona el período quincenal a auditar",
+            )
+
+        # Get selected period info
+        selected_period = next(p for p in periods if p["label"] == selected_period_label)
+        period_input = selected_period["short_label"]
+
+    else:
+        # ── Date range picker ──
+        MONTH_NAMES_ES = [
+            "enero", "febrero", "marzo", "abril", "mayo", "junio",
+            "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+        ]
+        col_start, col_end = st.columns(2)
+        today = date.today()
+        with col_start:
+            date_start = st.date_input(
+                "Fecha inicio",
+                value=today.replace(day=1),
+                min_value=date(2024, 1, 1),
+                max_value=date(current_year + 1, 12, 31),
+                format="DD/MM/YYYY",
+            )
+        with col_end:
+            date_end = st.date_input(
+                "Fecha fin",
+                value=today,
+                min_value=date(2024, 1, 1),
+                max_value=date(current_year + 1, 12, 31),
+                format="DD/MM/YYYY",
+            )
+
+        if date_end < date_start:
+            st.error("La fecha fin debe ser igual o posterior a la fecha inicio.")
+            st.stop()
+
+        # Build period string in the same format used by the rest of the app
+        d1 = int(date_start.strftime("%d"))
+        d2 = int(date_end.strftime("%d"))
+        m1_name = MONTH_NAMES_ES[date_start.month - 1]
+        m2_name = MONTH_NAMES_ES[date_end.month - 1]
+        y1 = date_start.year
+        y2 = date_end.year
+
+        if date_start.month == date_end.month and y1 == y2:
+            period_input = f"{d1:02d} al {d2:02d} de {m1_name} {y1}"
+        elif y1 == y2:
+            period_input = f"{d1:02d} de {m1_name} al {d2:02d} de {m2_name} {y1}"
+        else:
+            period_input = f"{d1:02d} de {m1_name} {y1} al {d2:02d} de {m2_name} {y2}"
 
     st.info(f"📅 Período seleccionado: **{period_input}**")
 
@@ -763,22 +816,62 @@ with tab4:
         help="Selecciona la especialidad para el reporte general de Pareto.",
     )
 
-    # Period selection (reuse same period logic)
-    col_yr_gen, col_per_gen = st.columns([1, 3])
-    with col_yr_gen:
-        gen_year = st.selectbox("Año", available_years, index=available_years.index(current_year), key="gen_year")
-    gen_periods = generate_periods(gen_year)
-    gen_period_labels = [p["label"] for p in gen_periods]
-    gen_default_idx = 0
-    if gen_year == now.year:
-        gen_month_idx = (now.month - 1) * 2
-        if now.day > 15:
-            gen_month_idx += 1
-        gen_default_idx = min(gen_month_idx, len(gen_periods) - 1)
-    with col_per_gen:
-        gen_period_label = st.selectbox("Período", gen_period_labels, index=gen_default_idx, key="gen_period")
-    gen_selected_period = next(p for p in gen_periods if p["label"] == gen_period_label)
-    gen_period = gen_selected_period["short_label"]
+    # Period selection (reuse same dual-mode logic)
+    gen_period_mode = st.radio(
+        "Método de selección de período",
+        ["Período quincenal", "Selección por fechas"],
+        horizontal=True,
+        key="gen_period_mode",
+    )
+
+    if gen_period_mode == "Período quincenal":
+        col_yr_gen, col_per_gen = st.columns([1, 3])
+        with col_yr_gen:
+            gen_year = st.selectbox("Año", available_years, index=available_years.index(current_year), key="gen_year")
+        gen_periods = generate_periods(gen_year)
+        gen_period_labels = [p["label"] for p in gen_periods]
+        gen_default_idx = 0
+        now_gen = datetime.now()
+        if gen_year == now_gen.year:
+            gen_month_idx = (now_gen.month - 1) * 2
+            if now_gen.day > 15:
+                gen_month_idx += 1
+            gen_default_idx = min(gen_month_idx, len(gen_periods) - 1)
+        with col_per_gen:
+            gen_period_label = st.selectbox("Período", gen_period_labels, index=gen_default_idx, key="gen_period")
+        gen_selected_period = next(p for p in gen_periods if p["label"] == gen_period_label)
+        gen_period = gen_selected_period["short_label"]
+    else:
+        _MONTH_ES = [
+            "enero", "febrero", "marzo", "abril", "mayo", "junio",
+            "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+        ]
+        col_gs, col_ge = st.columns(2)
+        today_gen = date.today()
+        with col_gs:
+            gen_ds = st.date_input(
+                "Fecha inicio", value=today_gen.replace(day=1),
+                min_value=date(2024, 1, 1), max_value=date(current_year + 1, 12, 31),
+                format="DD/MM/YYYY", key="gen_date_start",
+            )
+        with col_ge:
+            gen_de = st.date_input(
+                "Fecha fin", value=today_gen,
+                min_value=date(2024, 1, 1), max_value=date(current_year + 1, 12, 31),
+                format="DD/MM/YYYY", key="gen_date_end",
+            )
+        if gen_de < gen_ds:
+            st.error("La fecha fin debe ser igual o posterior a la fecha inicio.")
+            st.stop()
+        gd1, gd2 = int(gen_ds.strftime("%d")), int(gen_de.strftime("%d"))
+        gm1, gm2 = _MONTH_ES[gen_ds.month - 1], _MONTH_ES[gen_de.month - 1]
+        gy1, gy2 = gen_ds.year, gen_de.year
+        if gen_ds.month == gen_de.month and gy1 == gy2:
+            gen_period = f"{gd1:02d} al {gd2:02d} de {gm1} {gy1}"
+        elif gy1 == gy2:
+            gen_period = f"{gd1:02d} de {gm1} al {gd2:02d} de {gm2} {gy1}"
+        else:
+            gen_period = f"{gd1:02d} de {gm1} {gy1} al {gd2:02d} de {gm2} {gy2}"
 
     st.info(f"Especialidad: **{gen_specialty}** — Período: **{gen_period}**")
 
