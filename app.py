@@ -21,7 +21,6 @@ import report_generator as rg
 import report_pdf_generator as rpdf
 from generate_informe import generate_informe
 from informe_adapter import build_informe_data
-from period_utils import generate_periods
 
 # ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -363,39 +362,26 @@ with tab1:
     # ── Period selection mode ──
     period_mode = st.radio(
         "Método de selección de período",
-        ["Período quincenal", "Selección por fechas"],
+        ["Número de período", "Selección por fechas"],
         horizontal=True,
-        help="Elige entre un período quincenal predefinido o un rango de fechas personalizado",
+        help="Elige entre un número de período (según columna 'periodo' en los archivos) o un rango de fechas personalizado",
     )
 
-    if period_mode == "Período quincenal":
-        col_year, col_period = st.columns([1, 3])
+    if period_mode == "Número de período":
+        col_year, col_pnum = st.columns([1, 3])
         with col_year:
             selected_year = st.selectbox("Año", available_years, index=available_years.index(current_year))
-
-        periods = generate_periods(selected_year)
-        period_labels = [p["label"] for p in periods]
-
-        # Default to a recent period based on current date
-        default_idx = 0
-        now = datetime.now()
-        if selected_year == now.year:
-            month_idx = (now.month - 1) * 2
-            if now.day > 15:
-                month_idx += 1
-            default_idx = min(month_idx, len(periods) - 1)
-
-        with col_period:
-            selected_period_label = st.selectbox(
-                "Período de Auditoría",
-                period_labels,
-                index=default_idx,
-                help="Selecciona el período quincenal a auditar",
+        with col_pnum:
+            period_number = st.number_input(
+                "Número de período",
+                min_value=1,
+                max_value=30,
+                value=1,
+                step=1,
+                help="Número de período según la columna 'periodo' en los archivos cargados (1 a 30)",
             )
-
-        # Get selected period info
-        selected_period = next(p for p in periods if p["label"] == selected_period_label)
-        period_input = selected_period["short_label"]
+        period_input = f"P{period_number:03d}"
+        period_display = f"{period_input} — {selected_year}"
 
     else:
         # ── Date range picker ──
@@ -426,7 +412,7 @@ with tab1:
             st.error("La fecha fin debe ser igual o posterior a la fecha inicio.")
             st.stop()
 
-        # Build period string in the same format used by the rest of the app
+        # Build period string from dates
         d1 = int(date_start.strftime("%d"))
         d2 = int(date_end.strftime("%d"))
         m1_name = MONTH_NAMES_ES[date_start.month - 1]
@@ -440,8 +426,10 @@ with tab1:
             period_input = f"{d1:02d} de {m1_name} al {d2:02d} de {m2_name} {y1}"
         else:
             period_input = f"{d1:02d} de {m1_name} {y1} al {d2:02d} de {m2_name} {y2}"
+        period_display = period_input
+        selected_year = y1  # For downstream use
 
-    st.info(f"📅 Período seleccionado: **{period_input}**")
+    st.info(f"📅 Período seleccionado: **{period_display}**")
 
     st.markdown("---")
 
@@ -819,28 +807,24 @@ with tab4:
     # Period selection (reuse same dual-mode logic)
     gen_period_mode = st.radio(
         "Método de selección de período",
-        ["Período quincenal", "Selección por fechas"],
+        ["Número de período", "Selección por fechas"],
         horizontal=True,
         key="gen_period_mode",
     )
 
-    if gen_period_mode == "Período quincenal":
-        col_yr_gen, col_per_gen = st.columns([1, 3])
+    if gen_period_mode == "Número de período":
+        col_yr_gen, col_pnum_gen = st.columns([1, 3])
         with col_yr_gen:
             gen_year = st.selectbox("Año", available_years, index=available_years.index(current_year), key="gen_year")
-        gen_periods = generate_periods(gen_year)
-        gen_period_labels = [p["label"] for p in gen_periods]
-        gen_default_idx = 0
-        now_gen = datetime.now()
-        if gen_year == now_gen.year:
-            gen_month_idx = (now_gen.month - 1) * 2
-            if now_gen.day > 15:
-                gen_month_idx += 1
-            gen_default_idx = min(gen_month_idx, len(gen_periods) - 1)
-        with col_per_gen:
-            gen_period_label = st.selectbox("Período", gen_period_labels, index=gen_default_idx, key="gen_period")
-        gen_selected_period = next(p for p in gen_periods if p["label"] == gen_period_label)
-        gen_period = gen_selected_period["short_label"]
+        with col_pnum_gen:
+            gen_period_number = st.number_input(
+                "Número de período",
+                min_value=1, max_value=30, value=1, step=1,
+                help="Número de período según la columna 'periodo' en los archivos (1 a 30)",
+                key="gen_period_num",
+            )
+        gen_period = f"P{gen_period_number:03d}"
+        gen_period_display = f"{gen_period} — {gen_year}"
     else:
         _MONTH_ES = [
             "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -872,8 +856,9 @@ with tab4:
             gen_period = f"{gd1:02d} de {gm1} al {gd2:02d} de {gm2} {gy1}"
         else:
             gen_period = f"{gd1:02d} de {gm1} {gy1} al {gd2:02d} de {gm2} {gy2}"
+        gen_period_display = gen_period
 
-    st.info(f"Especialidad: **{gen_specialty}** — Período: **{gen_period}**")
+    st.info(f"Especialidad: **{gen_specialty}** — Período: **{gen_period_display}**")
 
     # Data availability check
     using_gsheets_gen = data_source == "📊 Google Sheets"

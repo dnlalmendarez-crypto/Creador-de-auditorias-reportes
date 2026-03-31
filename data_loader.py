@@ -257,17 +257,39 @@ def find_doctor_consultations(
         if matched is not None:
             # Try to filter by period if provided
             if period and matched is not None and not matched.empty:
-                period_lower = period.lower().strip()
+                period_str = str(period).strip()
                 period_matched = None
+
+                # Extract numeric part only from period codes like "P001", "P3"
+                # (not from date strings like "01 al 15 de enero 2026")
+                import re as _re
+                is_period_code = bool(_re.match(r"^P?\d{1,3}$", period_str, _re.IGNORECASE))
+                num_match = _re.search(r"\d+", period_str) if is_period_code else None
+                period_num = int(num_match.group()) if num_match else None
+
                 for col in list(matched.columns):
                     col_str = str(col).lower()
-                    if any(kw in col_str for kw in ["periodo", "period", "fecha", "date", "quincena"]):
+                    if any(kw in col_str for kw in ["periodo", "period", "quincena"]):
+                        col_vals = matched[col].astype(str).str.strip()
+                        # Try exact match first (e.g., "P001", "1")
+                        mask = col_vals.str.upper() == period_str.upper()
+                        if not mask.any() and period_num is not None:
+                            # Try matching numeric value (column may have "1", "001", "P001", etc.)
+                            col_nums = col_vals.str.extract(r"(\d+)", expand=False).astype(float)
+                            mask = col_nums == period_num
+                        if mask.any():
+                            period_matched = matched[mask].copy()
+                            break
+
+                    # Also try date columns as fallback for date-mode periods
+                    if period_matched is None and any(kw in col_str for kw in ["fecha", "date"]):
                         mask = matched[col].astype(str).str.lower().str.contains(
-                            period_lower, na=False, regex=False
+                            period_str.lower(), na=False, regex=False
                         )
                         if mask.any():
                             period_matched = matched[mask].copy()
                             break
+
                 if period_matched is not None and not period_matched.empty:
                     matched = period_matched
             frames.append(matched)
