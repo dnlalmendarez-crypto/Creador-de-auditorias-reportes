@@ -403,17 +403,24 @@ def parse_report_sections(report_text: str) -> dict:
 
         # Skip informe header lines until we hit a real section
         if skip_header:
-            if any(kw in upper for kw in [
+            # Always skip empty lines while in header
+            if not upper:
+                continue
+            if any(kw in clean_upper for kw in [
                 "INFORME DE AUDITORÍA", "INFORME DE AUDITORIA",
-                "NOMBRE:", "NOMBRE ", "CÓDIGO:", "CÓDIGO ",
-                "ESPECIALIDAD:", "ESPECIALIDAD ", "DEPENDENCIA:", "DEPENDENCIA ",
-                "PERIODO AUDITADO", "---",
+                "NOMBRE:", "CÓDIGO:", "CODIGO:",
+                "ESPECIALIDAD:", "DEPENDENCIA:",
+                "PERIODO AUDITADO", "TOTAL CONSULTAS",
+                "NO CONFORMIDADES:", "EVENTOS DE RIESGO:",
             ]):
                 continue
-            if upper and not any(kw in upper for kw in [
+            if line_stripped == "---":
+                continue
+            if not any(kw in clean_upper for kw in [
                 "RESUMEN", "REPORTE", "CUADRO", "ANÁLISIS", "ANALISIS",
                 "COMENTARIO", "TENDENCIA", "SCORE", "CONCLUSI", "SÍNTESIS", "SINTESIS",
                 "TABLA DE NO CONFORMIDADES", "TABLA DE EVENTOS",
+                "CUMPLIMIENTO POR COMPONENTE", "FIRMA",
             ]):
                 if not current_section:
                     continue
