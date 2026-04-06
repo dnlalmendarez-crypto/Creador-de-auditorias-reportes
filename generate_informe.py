@@ -378,8 +378,8 @@ def add_quantitative_table(doc: Document, citas: list):
     Tabla de análisis cuantitativo.
     Col widths originales: [1800, 4500, 1700, 1360]  total=9360
     """
-    COL_W = [1800, 4500, 1700, 1360]
-    HEADERS = ["Num Cita", "Diagnóstico", "No Conformidades", "Eventos de Riesgo"]
+    COL_W = [1400, 3600, 1200, 1400, 1360]
+    HEADERS = ["ID Cita", "Diagnóstico (CIE-11)", "Nota", "NC", "ER"]
     total_nc = sum(c.get("nc", 0) for c in citas)
     total_er = sum(c.get("er", 0) for c in citas)
     all_rows = [{"type": "header", "cols": HEADERS}]
@@ -389,12 +389,14 @@ def add_quantitative_table(doc: Document, citas: list):
             "cols": [
                 str(c.get("num_cita", "")),
                 c.get("diagnostico", ""),
+                str(c.get("nota", "")),
                 str(c.get("nc", "")),
                 str(c.get("er", "")),
             ]
         })
-    all_rows.append({"type": "total", "cols": ["TOTAL", "", str(total_nc), str(total_er)]})
-    table = doc.add_table(rows=len(all_rows), cols=4)
+    all_rows.append({"type": "total", "cols": ["TOTAL", "", "", str(total_nc), str(total_er)]})
+    num_cols = len(COL_W)
+    table = doc.add_table(rows=len(all_rows), cols=num_cols)
     _set_col_width(table, COL_W)
     data_row_index = 0
     for i, row_info in enumerate(all_rows):
@@ -412,9 +414,83 @@ def add_quantitative_table(doc: Document, citas: list):
         for j, (cell, val) in enumerate(zip(row.cells, cols)):
             _style_cell(cell, fill, COL_W[j])
             align = (WD_ALIGN_PARAGRAPH.CENTER
-                     if j in (0, 2, 3) else WD_ALIGN_PARAGRAPH.LEFT)
+                     if j in (0, 2, 3, 4) else WD_ALIGN_PARAGRAPH.LEFT)
             _para_text(cell, val, bold=bold, font_size_pt=fsize,
                        color_hex=text_color, align=align)
+    doc.add_paragraph()
+
+
+def _parse_pipe_table(text: str) -> list[list[str]]:
+    """Parse a markdown pipe-delimited table into rows of cells."""
+    import re as _re
+    lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+    table_lines = [
+        l for l in lines
+        if "|" in l and "---" not in l
+        and not l.lower().startswith("leyenda")
+        and "leyenda:" not in l.lower()
+    ]
+    rows = []
+    for line in table_lines:
+        cells = [_re.sub(r"\*\*([^*]+)\*\*", r"\1", c.strip())
+                 for c in line.split("|") if c.strip()]
+        if cells:
+            rows.append(cells)
+    return rows
+
+
+def add_qualitative_table(doc: Document, table_text: str, title: str):
+    """Add a qualitative analysis table (NC or ER) to the document."""
+    rows = _parse_pipe_table(table_text)
+    if not rows:
+        return
+
+    # Add title
+    p = doc.add_paragraph()
+    run = p.add_run(title)
+    run.bold = True
+    run.font.name = "Arial"
+    run.font.size = Pt(10)
+    p.paragraph_format.space_before = Pt(6)
+    p.paragraph_format.space_after = Pt(3)
+
+    num_cols = len(rows[0])
+    # Column widths: COMPONENTE(1800) | CRITERIO(1600) | NC/ER(600) | TIPIFICACIÓN(2800) | IMPACTO(2560)
+    COL_W = [1800, 1600, 600, 2800, 2560]
+    # Adjust if fewer columns
+    while len(COL_W) < num_cols:
+        COL_W.append(1800)
+    COL_W = COL_W[:num_cols]
+
+    table = doc.add_table(rows=len(rows), cols=num_cols)
+    _set_col_width(table, COL_W)
+
+    for i, row_cells in enumerate(rows):
+        row = table.rows[i]
+        if i == 0:
+            fill = DARK_BLUE
+            text_color = "FFFFFF"
+            bold = True
+        else:
+            fill = PALE_BLUE if (i - 1) % 2 == 0 else WHITE
+            text_color = "000000"
+            bold = False
+
+        for j in range(num_cols):
+            cell = row.cells[j]
+            val = row_cells[j] if j < len(row_cells) else ""
+            cell_fill = fill
+            # First column (COMPONENTE) gets blue background for data rows
+            if i > 0 and j == 0 and val.strip():
+                cell_fill = LIGHT_BLUE
+                bold_cell = True
+            else:
+                bold_cell = bold
+            _style_cell(cell, cell_fill, COL_W[j])
+            align = WD_ALIGN_PARAGRAPH.CENTER if j in (0, 2) else WD_ALIGN_PARAGRAPH.LEFT
+            _para_text(cell, val, bold=bold_cell, font_size_pt=8,
+                       color_hex=text_color, align=align)
+
     doc.add_paragraph()
 
 
@@ -506,11 +582,37 @@ def generate_informe(data: dict) -> bytes:
     add_section_title(doc, "ANÁLISIS CUANTITATIVO")
     add_quantitative_table(doc, data.get("citas", []))
 
-    add_section_title(doc, "ANÁLISIS CUALITATIVO")
-    p = doc.add_paragraph(data.get("analisis_cualitativo", ""))
-    if p.runs:
-        p.runs[0].font.name = "Arial"
-        p.runs[0].font.size = Pt(10)
+    add_section_title(doc, "ANÁLISIS CUALITATIVO POR COMPONENTE")
+
+    # Render structured qualitative tables if available
+    nc_table_text = data.get("nc_table", "")
+    er_table_text = data.get("er_table", "")
+
+    if nc_table_text:
+        add_qualitative_table(doc, nc_table_text, "Tabla de No Conformidades")
+    if er_table_text:
+        add_qualitative_table(doc, er_table_text, "Tabla de Eventos de Riesgo")
+
+    # Fallback: render as plain text if no structured tables
+    if not nc_table_text and not er_table_text:
+        cualitativo_text = data.get("analisis_cualitativo", "")
+        if cualitativo_text:
+            p = doc.add_paragraph(cualitativo_text)
+            if p.runs:
+                p.runs[0].font.name = "Arial"
+                p.runs[0].font.size = Pt(10)
+
+    # Síntesis paragraph
+    sintesis_text = data.get("sintesis", "")
+    if sintesis_text:
+        p = doc.add_paragraph()
+        run = p.add_run("SÍNTESIS: ")
+        run.bold = True
+        run.font.name = "Arial"
+        run.font.size = Pt(10)
+        run = p.add_run(sintesis_text)
+        run.font.name = "Arial"
+        run.font.size = Pt(10)
 
     # ── Serializar a bytes ───────────────────────────────────────────────
     buf = io.BytesIO()

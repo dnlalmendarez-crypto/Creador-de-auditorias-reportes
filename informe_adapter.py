@@ -153,17 +153,30 @@ def parse_citas(cuantitativo_text: str) -> list:
         # Skip total row
         if row[0].upper() == "TOTAL":
             continue
+        # Table format: ID CITA | DIAGNÓSTICO | NOTA | NC | ER (5 cols)
+        # or legacy:    ID CITA | DIAGNÓSTICO | NC | ER (4 cols)
+        if len(row) >= 5:
+            # New format with NOTA column
+            nota = row[2].strip()
+            nc_str = row[3].strip()
+            er_str = row[4].strip()
+        else:
+            # Legacy format without NOTA
+            nota = ""
+            nc_str = row[2].strip() if len(row) > 2 else "0"
+            er_str = row[3].strip() if len(row) > 3 else "0"
         try:
-            nc = int(re.sub(r"[^\d]", "", row[2])) if row[2].strip() else 0
+            nc = int(re.sub(r"[^\d]", "", nc_str)) if nc_str else 0
         except (ValueError, IndexError):
             nc = 0
         try:
-            er = int(re.sub(r"[^\d]", "", row[3])) if row[3].strip() else 0
+            er = int(re.sub(r"[^\d]", "", er_str)) if er_str else 0
         except (ValueError, IndexError):
             er = 0
         citas.append({
             "num_cita": row[0].strip(),
             "diagnostico": row[1].strip(),
+            "nota": nota,
             "nc": nc,
             "er": er,
         })
@@ -251,15 +264,31 @@ def build_informe_data(
 
     # Construir análisis cualitativo combinando las secciones
     cualitativo_parts = []
-    if sections.get("cualitativo"):
-        cualitativo_parts.append(_strip_md(sections["cualitativo"]))
-    if sections.get("no_conformidades"):
-        cualitativo_parts.append("\nAnálisis de No Conformidades\n")
-        cualitativo_parts.append(_strip_md(sections["no_conformidades"]))
-    if sections.get("eventos_riesgo"):
-        cualitativo_parts.append("\n" + "─" * 40 + "\n")
-        cualitativo_parts.append("\nAnálisis de Eventos de Riesgo\n")
-        cualitativo_parts.append(_strip_md(sections["eventos_riesgo"]))
+
+    # Prefer structured tables (nc_table / er_table) over old prose sections
+    if sections.get("nc_table"):
+        cualitativo_parts.append("TABLA DE NO CONFORMIDADES\n")
+        cualitativo_parts.append(_strip_md(sections["nc_table"]))
+    if sections.get("er_table"):
+        cualitativo_parts.append("\nTABLA DE EVENTOS DE RIESGO\n")
+        cualitativo_parts.append(_strip_md(sections["er_table"]))
+
+    # Fallback to old prose sections if no structured tables
+    if not cualitativo_parts:
+        if sections.get("cualitativo"):
+            cualitativo_parts.append(_strip_md(sections["cualitativo"]))
+        if sections.get("no_conformidades"):
+            cualitativo_parts.append("\nAnálisis de No Conformidades\n")
+            cualitativo_parts.append(_strip_md(sections["no_conformidades"]))
+        if sections.get("eventos_riesgo"):
+            cualitativo_parts.append("\n" + "─" * 40 + "\n")
+            cualitativo_parts.append("\nAnálisis de Eventos de Riesgo\n")
+            cualitativo_parts.append(_strip_md(sections["eventos_riesgo"]))
+
+    # Add síntesis if present
+    if sections.get("sintesis"):
+        cualitativo_parts.append("\nSÍNTESIS\n")
+        cualitativo_parts.append(_strip_md(sections["sintesis"]))
 
     analisis_cualitativo = "\n".join(cualitativo_parts)
 
@@ -279,4 +308,8 @@ def build_informe_data(
         "comentario_seguimiento": seguimiento,
         "citas": citas,
         "analisis_cualitativo": analisis_cualitativo,
+        # Structured qualitative tables (raw pipe text for DOCX table rendering)
+        "nc_table": sections.get("nc_table", ""),
+        "er_table": sections.get("er_table", ""),
+        "sintesis": _strip_md(sections.get("sintesis", "")),
     }
