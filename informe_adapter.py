@@ -78,7 +78,13 @@ def parse_compliance_rows(compliance_text: str, period_headers: list | None = No
 
     rows_raw = []
     for line in table_lines:
-        cells = [_strip_md(c.strip()) for c in line.split("|") if c.strip()]
+        parts = line.split("|")
+        # Trim leading/trailing empty strings from outer pipes, keep inner empties
+        if parts and not parts[0].strip():
+            parts = parts[1:]
+        if parts and not parts[-1].strip():
+            parts = parts[:-1]
+        cells = [_strip_md(c.strip()) for c in parts]
         rows_raw.append(cells)
 
     if not rows_raw:
@@ -142,7 +148,12 @@ def parse_citas(cuantitativo_text: str) -> list:
 
     rows_raw = []
     for line in table_lines:
-        cells = [_strip_md(c.strip()) for c in line.split("|") if c.strip()]
+        parts = line.split("|")
+        if parts and not parts[0].strip():
+            parts = parts[1:]
+        if parts and not parts[-1].strip():
+            parts = parts[:-1]
+        cells = [_strip_md(c.strip()) for c in parts]
         rows_raw.append(cells)
 
     # Skip header row (first row), parse data rows, skip TOTAL row
