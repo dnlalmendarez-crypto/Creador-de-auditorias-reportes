@@ -74,6 +74,103 @@ def load_graficas_cumplimiento(path: str) -> dict | None:
     return {"Sheet1": data}
 
 
+def load_reporte_global(path: str) -> dict | None:
+    """
+    Load '📊 Reporte Global 2026 (Auditoria de Calidad) || DoctorSV'.
+    Returns dict of sheets.
+    """
+    data = load_excel_safe(path)
+    if data is None:
+        return None
+    if isinstance(data, dict):
+        return data
+    return {"Sheet1": data}
+
+
+def find_doctor_global_compliance(
+    reporte_global: dict,
+    doctor_name: str,
+    doctor_code: str | None = None,
+) -> str:
+    """
+    Search for a doctor's component-level compliance in the Reporte Global.
+    Returns markdown table text for the doctor's row(s).
+    """
+    name_lower = doctor_name.lower().strip()
+    name_parts = [p for p in name_lower.split() if len(p) > 2]
+
+    for sheet_name, df in reporte_global.items():
+        if df is None or df.empty:
+            continue
+
+        df = df.copy()
+        # Deduplicate columns
+        seen = {}
+        new_cols = []
+        for c in df.columns:
+            if c in seen:
+                seen[c] += 1
+                new_cols.append(f"{c}_{seen[c]}")
+            else:
+                seen[c] = 0
+                new_cols.append(c)
+        df.columns = new_cols
+        df_str = df.astype(str)
+        cols = list(df.columns)
+
+        matched = None
+
+        # Search by code
+        if doctor_code:
+            code_upper = doctor_code.upper().strip()
+            for col in cols:
+                col_str = str(col).lower()
+                if any(kw in col_str for kw in ["cod", "code", "código"]):
+                    mask = df_str[col].str.strip().str.upper() == code_upper
+                    if not mask.any():
+                        mask = df_str[col].str.upper().str.contains(
+                            code_upper, na=False, regex=False
+                        )
+                    if mask.any():
+                        matched = df[mask]
+                        break
+            # Scan all columns for code
+            if matched is None:
+                for col in cols:
+                    mask = df_str[col].str.strip().str.upper() == code_upper
+                    if mask.any():
+                        matched = df[mask]
+                        break
+
+        # Search by name
+        if matched is None:
+            for col in cols:
+                mask = df_str[col].str.lower().str.contains(
+                    name_lower, na=False, regex=False
+                )
+                if mask.any():
+                    matched = df[mask]
+                    break
+
+        # Name fragments
+        if matched is None and len(name_parts) >= 2:
+            for col in cols:
+                col_lower = df_str[col].str.lower()
+                match_count = sum(
+                    col_lower.str.contains(part, na=False, regex=False).astype(int)
+                    for part in name_parts
+                )
+                mask = match_count >= min(2, len(name_parts))
+                if mask.any():
+                    matched = df[mask]
+                    break
+
+        if matched is not None and not matched.empty:
+            return f"**Hoja: {sheet_name}**\n{dataframe_to_markdown_table(matched)}"
+
+    return ""
+
+
 def load_base_datos_cita(path: str) -> dict | None:
     """
     Load '🛢️ Base de Datos x Cita 2026 || DoctorSv'.

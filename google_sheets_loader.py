@@ -91,6 +91,12 @@ def load_base_datos_from_sheets(client: gspread.Client, spreadsheet_id: str) -> 
     return load_sheet_as_dict(client, sid)
 
 
+def load_reporte_global_from_sheets(client: gspread.Client, spreadsheet_id: str) -> dict | None:
+    """Load reporte global de auditoría (all sheets) from Google Sheets."""
+    sid = extract_sheet_id(spreadsheet_id)
+    return load_sheet_as_dict(client, sid)
+
+
 def upload_file_to_drive(
     credentials_info: dict,
     file_bytes: bytes,

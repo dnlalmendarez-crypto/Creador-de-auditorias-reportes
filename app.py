@@ -126,10 +126,12 @@ with st.sidebar:
     tipificaciones_file = None
     graficas_file = None
     base_datos_file = None
+    reporte_global_file = None
     gs_clasificacion_id = ""
     gs_tipificaciones_id = ""
     gs_graficas_id = ""
     gs_base_datos_id = ""
+    gs_reporte_global_id = ""
 
     if data_source == "📤 Subir archivos Excel":
         # ─── EXCEL UPLOAD MODE ───────────────────────────────────────────────
@@ -165,6 +167,13 @@ with st.sidebar:
             type=["xlsx", "xls"],
             key="base_datos",
             help="Archivo: Base de Datos x Cita 2026",
+        )
+
+        reporte_global_file = st.file_uploader(
+            "Reporte Global de Auditoría (.xlsx)",
+            type=["xlsx", "xls"],
+            key="reporte_global",
+            help="Archivo: 📊 Reporte Global 2026 (Auditoria de Calidad) || DoctorSV — para cumplimiento por componente",
         )
 
     else:
@@ -223,6 +232,12 @@ with st.sidebar:
             key="gs_base_datos",
             placeholder="https://docs.google.com/spreadsheets/d/... o ID",
         )
+        gs_reporte_global_id = st.text_input(
+            "Reporte Global de Auditoría",
+            key="gs_reporte_global",
+            placeholder="https://docs.google.com/spreadsheets/d/... o ID",
+            help="📊 Reporte Global 2026 — para cumplimiento por componente",
+        )
 
         if st.button("🔗 Conectar a Google Sheets"):
             if not st.session_state.get("gcp_creds"):
@@ -249,6 +264,10 @@ with st.sidebar:
                         if gs_base_datos_id.strip():
                             loaded["base_datos"] = gsl.load_base_datos_from_sheets(
                                 client, gs_base_datos_id.strip()
+                            )
+                        if gs_reporte_global_id.strip():
+                            loaded["reporte_global"] = gsl.load_reporte_global_from_sheets(
+                                client, gs_reporte_global_id.strip()
                             )
 
                     st.session_state.gsheets_data = loaded
@@ -297,7 +316,8 @@ with st.sidebar:
 # ─── LOAD & CACHE DATA (Excel mode) ─────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def get_file_data(_clasificacion_key, _tipificaciones_key, _graficas_key, _base_datos_key,
-                  clasificacion_bytes, tipificaciones_bytes, graficas_bytes, base_datos_bytes):
+                  clasificacion_bytes, tipificaciones_bytes, graficas_bytes, base_datos_bytes,
+                  _reporte_global_key=None, reporte_global_bytes=None):
     """Cache loaded Excel data keyed by file content hashes."""
     import tempfile
 
@@ -316,6 +336,7 @@ def get_file_data(_clasificacion_key, _tipificaciones_key, _graficas_key, _base_
         "tipificaciones": bytes_to_df(tipificaciones_bytes, dl.load_tipificaciones),
         "graficas": bytes_to_df(graficas_bytes, dl.load_graficas_cumplimiento),
         "base_datos": bytes_to_df(base_datos_bytes, dl.load_base_datos_cita),
+        "reporte_global": bytes_to_df(reporte_global_bytes, dl.load_reporte_global),
     }
 
 
@@ -512,6 +533,7 @@ with tab1:
                 base_datos_data = gs_data.get("base_datos")
                 clasificacion_df = gs_data.get("clasificacion")
                 tipificaciones_df = gs_data.get("tipificaciones")
+                reporte_global_data = gs_data.get("reporte_global")
             else:
                 with st.spinner("Cargando archivos..."):
                     file_cache = get_file_data(
@@ -519,11 +541,14 @@ with tab1:
                         _file_hash(graficas_file), _file_hash(base_datos_file),
                         get_bytes(clasificacion_file), get_bytes(tipificaciones_file),
                         get_bytes(graficas_file), get_bytes(base_datos_file),
+                        _reporte_global_key=_file_hash(reporte_global_file),
+                        reporte_global_bytes=get_bytes(reporte_global_file),
                     )
                 graficas_data = file_cache.get("graficas")
                 base_datos_data = file_cache.get("base_datos")
                 clasificacion_df = file_cache.get("clasificacion")
                 tipificaciones_df = file_cache.get("tipificaciones")
+                reporte_global_data = file_cache.get("reporte_global")
 
             # Build reference text
             clasificacion_text = (
@@ -582,6 +607,15 @@ with tab1:
                         if parts:
                             compliance_text = "\n\n".join(parts)
 
+                # Step 2b: Find reporte global data (component compliance)
+                reporte_global_text = ""
+                if reporte_global_data:
+                    reporte_global_text = dl.find_doctor_global_compliance(
+                        reporte_global_data, doc_name, doc_code
+                    )
+                if not reporte_global_text:
+                    reporte_global_text = "No se proporcionó Reporte Global de cumplimiento por componente."
+
                 # Debug: show compliance data being sent to Claude
                 with st.expander("🔍 Datos de cumplimiento enviados a Claude", expanded=False):
                     if graficas_data:
@@ -595,6 +629,9 @@ with tab1:
                     else:
                         st.warning("No se cargaron datos de gráficas de cumplimiento")
                     st.text(compliance_text[:3000] if len(compliance_text) > 3000 else compliance_text)
+                    if reporte_global_data:
+                        st.caption("Datos de Reporte Global:")
+                        st.text(reporte_global_text[:2000] if len(reporte_global_text) > 2000 else reporte_global_text)
 
                 # Step 3: Generate AI analysis
                 status_placeholder.info("🤖 Generando análisis con Claude AI...")
@@ -618,6 +655,7 @@ with tab1:
                         compliance_table=compliance_text,
                         clasificacion_table=clasificacion_text,
                         tipificaciones_list=tipificaciones_text,
+                        reporte_global_table=reporte_global_text,
                         api_key=api_key,
                         model=selected_model,
                         stream_callback=stream_cb,

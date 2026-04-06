@@ -998,13 +998,17 @@ def generate_report_html(
         parts.append('<div class="section-heading">1. RESUMEN EJECUTIVO</div>')
         parts.append(_body_text_to_html(report_sections["resumen_ejecutivo"]))
 
-    # Tendencias table (within resumen)
+    # Cumplimiento por componentes table (within resumen)
+    if report_sections.get("cumplimiento_componentes"):
+        parts.append('<div class="subsection-heading">Cumplimiento por Componentes</div>')
+        parts.append(_score_summary_to_html(report_sections["cumplimiento_componentes"]))
+    # Legacy: Score summary table (backward compatibility)
+    elif report_sections.get("score_summary"):
+        parts.append(_score_summary_to_html(report_sections["score_summary"]))
+
+    # Tendencias table (within resumen, only if present — omitted for first audit)
     if report_sections.get("tendencias"):
         parts.append(_tendencias_to_html(report_sections["tendencias"]))
-
-    # Score summary table (within resumen)
-    if report_sections.get("score_summary"):
-        parts.append(_score_summary_to_html(report_sections["score_summary"]))
 
     # ── 2. CUADRO DE CUMPLIMIENTO POR CRITERIO ──
     if report_sections.get("cumplimiento"):
@@ -1078,6 +1082,17 @@ def generate_report_html(
     if report_sections.get("conclusiones"):
         parts.append('<div class="section-heading">4. CONCLUSIONES Y ACCIONES REQUERIDAS</div>')
         parts.append(_conclusiones_to_html(report_sections["conclusiones"]))
+
+    # ── FIRMA ──
+    if report_sections.get("firma"):
+        parts.append('<hr class="separator"/>')
+        parts.append(_body_text_to_html(report_sections["firma"]))
+    else:
+        # Default firma block
+        from datetime import date as _date
+        parts.append('<hr class="separator"/>')
+        parts.append(f'<p><b>Auditor Responsable:</b> UGMC &mdash; Unidad de Gesti&oacute;n de Mejora Continua</p>')
+        parts.append(f'<p><b>Fecha de Emisi&oacute;n:</b> {_date.today().strftime("%d/%m/%Y")}</p>')
 
     # ── Footer ──
     parts.append('<p class="footer">Documento generado autom&aacute;ticamente por el Sistema de Auditor&iacute;a M&eacute;dica de Calidad</p>')

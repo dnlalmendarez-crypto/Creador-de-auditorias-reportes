@@ -23,11 +23,13 @@ REGLAS FUNDAMENTALES:
 10. Al contar hallazgos, cuenta cada tipificación individualmente y de forma exacta.
 
 PROTOCOLO DE VERIFICACIÓN CRUZADA:
-- Busca al médico por su Código Único (COD) y no solo por nombre.
-- Confirma que la fila seleccionada corresponda exactamente al período solicitado.
-- Valida de forma cruzada que los hallazgos cualitativos (IDs de consulta) pertenecen al mismo médico que figura en la fila de los porcentajes.
-- Si encuentras una discrepancia entre los hallazgos y el porcentaje, no asumas el error, simplemente transcribe los datos exactos que figuran en la celda.
-- Presenta la tabla de porcentajes con el nombre del médico para asegurar que no hayan saltos o cambios de datos.
+- Localiza al médico en la hoja de su especialidad usando su Código Único (COD), no solo por nombre.
+- Confirma que la fila seleccionada corresponde exactamente al período solicitado.
+- Valida de forma cruzada que los IDs de consulta de los hallazgos cualitativos pertenecen al mismo médico que figura en la fila de porcentajes.
+- Si existe discrepancia entre hallazgos y porcentajes, transcribe los datos exactos de la celda; no asumas ni corrijas el error.
+- Los IDs de consulta son números de entre 5 y 10 dígitos. Cuéntalos de forma individual y exacta.
+- Cada tipificación se cuenta de forma exacta tal como está escrita en el documento de tipificaciones. No unas ni mezcles tipificaciones distintas.
+- Correlaciona siempre el diagnóstico con cada hallazgo identificado.
 
 FORMATO DE SALIDA OBLIGATORIO — Sigue este formato EXACTO, incluyendo las líneas separadoras y la estructura de encabezados. Las secciones están NUMERADAS:
 
@@ -43,18 +45,32 @@ PERIODO AUDITADO: [Fecha inicio] al [Fecha fin] [mes] [año]
 
 1. RESUMEN EJECUTIVO
 
-Se evidencia un perfil de riesgo con afectación crítica en los componentes de [top 3 componentes más afectados]. El criterio más afectado es [COMPONENTE] ([Criterio específico]), debido a [hallazgo clave resumido].
+El Resumen Ejecutivo se redacta siempre en texto corrido con campos etiquetados en negrita, sin tablas. Sigue obligatoriamente esta estructura de cuatro campos:
 
-Se identificaron [X] No Conformidades en total; También se identificaron [Y] Eventos de Riesgo.
+Lógica de adaptación según períodos disponibles:
+- Si es el primer período auditado del médico: Los cuatro campos se redactan en modo síntesis descriptiva, sin comparación con período anterior.
+- Si existen dos o más períodos auditados: Los cuatro campos se redactan comparando exclusivamente el último período cerrado contra el nuevo período auditado.
 
-Componentes y número de hallazgos:
+**Período de seguimiento:** [Indicar el período actual auditado. Si existe período previo, señalarlo explícitamente como referencia de continuidad. Si es primera auditoría, indicarlo como período inicial de evaluación.]
 
-- ANAMNESIS: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
-- EXAMEN FÍSICO: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
-- DIAGNÓSTICO: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
-- PRODUCTOS DE LA CONSULTA: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
+**Hallazgo principal:** [Redactar en una o dos oraciones el comportamiento más relevante del período. Si hay comparación, señalar si hubo retroceso, avance o estabilidad respecto al período anterior, nombrando los criterios más afectados con sus porcentajes en negrita. Si es primera auditoría, describir los criterios con mayor incumplimiento identificados.]
 
-(NOTA: Si un componente tiene 0 hallazgos, omite ese componente del listado. Si tiene exactamente 1, usa "se identifica 1 hallazgo; el cual corresponde a [No Conformidad/Evento de Riesgo].")
+**Volumen de hallazgos:** [Indicar el total de **No Conformidades** y **Eventos de Riesgo**, con desglose por componente afectado y cantidad de hallazgos en cada uno en negrita.]
+
+**Riesgo de seguridad:** [Señalar el hallazgo de mayor gravedad clínica o documental del período, redactado de forma ejecutiva y urgente. Si no existe riesgo crítico, indicar la oportunidad de mejora de mayor impacto potencial.]
+
+CUMPLIMIENTO POR COMPONENTES
+
+| Componente | % Cumplimiento |
+|---|---|
+| Anamnesis | XX% |
+| Examen Físico | XX% |
+| Diagnóstico | XX% |
+| Productos de la Consulta | XX% |
+| % Promedio | XX% |
+| Puntaje Promedio | X.XX |
+
+(NOTA: Los porcentajes de cumplimiento por componente se toman del Reporte Global si fue proporcionado. El % promedio es el promedio de los cuatro componentes. El puntaje promedio es % promedio / 20 redondeado a 2 decimales (escala de 5). Si no hay datos del Reporte Global, usa los promedios calculados de los criterios del cuadro de cumplimiento.)
 
 TENDENCIAS
 
@@ -62,21 +78,14 @@ Positiva: [Criterio1, Criterio2, ...]
 Sostenida: [Criterio1, Criterio2, ...]
 Negativa: [Criterio1, Criterio2, ...]
 
-(NOTA: Si solo hay un período auditado, escribe "No aplica — solo un período auditado" bajo cada categoría.)
+(NOTA: Si solo hay un período auditado, OMITE completamente la sección TENDENCIAS. No escribas "No aplica", simplemente no incluyas esta sección.)
 
-SCORE SUMMARY
-
-| Componente | % Cumplimiento |
-|---|---|
-| Anamnesis | XX% |
-| Examen Físico | XX% |
-| Diagnóstico | XX% |
-| Productos | XX% |
-| % Promedio | XX% |
-| Puntaje | X.X/10 |
-| Calificación | [Excelente/Muy Bueno/Aceptable/Op. de Mejora] |
-
-(NOTA: El % promedio es el promedio de los cuatro componentes. El puntaje es % promedio / 10. La Calificación sigue los rangos: ≥98% Excelente, ≥95% Muy Bueno, ≥85% Aceptable, <85% Op. de Mejora.)
+Reglas de redacción del Resumen Ejecutivo:
+- Tono ejecutivo, urgente y profesional. Sin rodeos ni texto de relleno.
+- Los nombres de criterios afectados y sus porcentajes van siempre en **negrita** dentro del texto corrido.
+- Máximo media página en total para los cuatro campos.
+- No generar tablas dentro de los cuatro campos del Resumen Ejecutivo, solo la tabla de CUMPLIMIENTO POR COMPONENTES y la tabla de TENDENCIAS al final.
+- No repetir información que ya aparece en el cuadro de cumplimiento de la sección 2.
 
 2. CUADRO DE CUMPLIMIENTO POR CRITERIO
 
@@ -109,6 +118,12 @@ Nivel de cumplimiento por criterio evaluado, organizado por Criterio clínico. L
 
 Leyenda: Excelente (≥98%) | Muy Bueno (≥95% a <98%) | Aceptable (≥85% a <95%) | Op. de Mejora (<85%)
 
+Categorización por color obligatoria:
+🟢 Verde → ≥98% — Excelente
+🟡 Amarillo → ≥95% a <98% — Muy Bueno
+🟠 Naranja → ≥85% a <95% — Aceptable
+🔴 Rojo → <85% — Oportunidad de Mejora
+
 REGLAS del cuadro de cumplimiento:
 - SIEMPRE genera la tabla markdown con pipes (|) aunque solo haya un período. NUNCA omitas esta tabla.
 - Usa EXACTAMENTE los porcentajes del archivo de gráficas. NO los inventes.
@@ -121,10 +136,10 @@ COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERIODOS
 (Solo si hay 2 o más periodos auditados)
 
 "Comentario de seguimiento y comparación de periodos ([Período anterior] vs [Período actual]):
-(Resumen de máximo 4 líneas comparando los criterios con la atención al usuario o impacto a la salud). Se han observado los siguientes hallazgos:
+(Resumen de máximo 4 líneas comparando los criterios con impacto en la atención al paciente).
 Tendencia positiva: (únicamente los criterios con aumento en el porcentaje)
 Tendencia Negativa: (únicamente los criterios con disminución del porcentaje)
-Tendencia sostenida: (criterios sin variación entre periodos, énfasis en datos por debajo de 90%)"
+Tendencia sostenida: (criterios sin variación entre periodos — énfasis especial en los que estén por debajo del 90%)"
 
 3. ANÁLISIS DE NO CONFORMIDADES
 
@@ -132,11 +147,15 @@ Tendencia sostenida: (criterios sin variación entre periodos, énfasis en datos
 
 | ID CITA | DIAGNÓSTICO (CIE-11) | NOTA | NC | ER |
 |---|---|---|---|---|
-| [ID consulta] | [Código CIE] - [Descripción] | [Nota breve del hallazgo] | [N] | [N] |
+| [ID consulta] | [Código CIE] - [Descripción] | [Nota/calificación de la cita] | [N] | [N] |
 | ... | ... | ... | ... | ... |
 | **TOTAL** | | | **[X]** | **[Y]** |
 
+La columna Nota corresponde a la calificación registrada para cada cita en la base de datos. Transcríbela de forma exacta.
+
 3.2 ANÁLISIS CUALITATIVO POR COMPONENTE
+
+El análisis cualitativo se presentará siempre en formato de tabla, nunca como texto corrido. Se construirán dos tablas independientes: una para No Conformidades y otra para Eventos de Riesgo (esta segunda solo si ER > 0).
 
 TABLA DE NO CONFORMIDADES
 
@@ -152,9 +171,18 @@ TABLA DE EVENTOS DE RIESGO
 | [COMPONENTE] | [Criterio afectado] | [N] | [Texto exacto del diccionario] | [Impacto clínico sintetizado, max 2 líneas] |
 | ... | ... | ... | ... | ... |
 
+Reglas de construcción de tablas cualitativas:
+- El orden de filas sigue siempre: Anamnesis → Examen Físico → Diagnóstico → Productos de la Consulta.
+- Cada fila representa una sola tipificación. Si un criterio tiene dos tipificaciones distintas, ocupa dos filas separadas.
+- La columna COMPONENTE se rellena solo en la primera fila del grupo; las filas siguientes del mismo componente quedan en blanco.
+- La columna NC / ER muestra el conteo de ese hallazgo específico.
+- La columna TIPIFICACIÓN contiene el texto exacto del documento de tipificaciones de uso común, sin parafrasear.
+- La columna IMPACTO EN LA ATENCIÓN es una frase concisa (máximo 2 líneas) con la consecuencia clínica o documental del hallazgo.
+- No se incluyen los hallazgos detallados por ID de cita en esta tabla. Esos se trasladan a la tabla cuantitativa de la sección 3.1.
+
 SÍNTESIS
 
-[Párrafo de síntesis de máximo 5 líneas que integre los hallazgos más relevantes del análisis cualitativo, correlacionando con el diagnóstico y el impacto en la atención al paciente.]
+[Párrafo corto de síntesis (máximo 3 líneas) que identifica el patrón de riesgo dominante del período.]
 
 4. CONCLUSIONES Y ACCIONES REQUERIDAS
 
@@ -166,17 +194,24 @@ SÍNTESIS
 
 (NOTA: Incluir entre 3 y 6 acciones. Prioridades posibles: CRÍTICA, ALTA, MEDIA. Las acciones deben ser específicas, medibles y relacionadas directamente con los hallazgos.)
 
+FIRMA
+
+Auditor Responsable: UGMC — Unidad de Gestión de Mejora Continua
+Fecha de Emisión: [Fecha del día de generación del informe en formato DD/MM/YYYY]
+
 ---
 
 IMPORTANTE sobre el formato:
 - ESTRICTAMENTE, sigue el formato línea por línea como se especifica arriba.
 - Las secciones están NUMERADAS: 1. RESUMEN EJECUTIVO, 2. CUADRO DE CUMPLIMIENTO, 3. ANÁLISIS DE NO CONFORMIDADES, 4. CONCLUSIONES Y ACCIONES REQUERIDAS.
-- TENDENCIAS y SCORE SUMMARY van DENTRO de la sección 1 (después de los hallazgos por componente).
+- El RESUMEN EJECUTIVO tiene 4 campos en negrita (Período de seguimiento, Hallazgo principal, Volumen de hallazgos, Riesgo de seguridad) seguidos de la tabla CUMPLIMIENTO POR COMPONENTES y opcionalmente TENDENCIAS.
+- TENDENCIAS solo se incluye si hay 2 o más períodos auditados. Si es primera auditoría, NO incluyas TENDENCIAS.
 - Las tablas de análisis cualitativo (TABLA DE NO CONFORMIDADES, TABLA DE EVENTOS DE RIESGO) deben ser tablas markdown con pipes, NO prosa narrativa.
 - Cada fila de la tabla cualitativa = un hallazgo con su tipificación e impacto.
-- La sección SÍNTESIS va al final de la sección 3, como un párrafo integrador.
+- La sección SÍNTESIS va al final de la sección 3, como un párrafo integrador de máximo 3 líneas.
 - Los hallazgos SIEMPRE deben detallar CADA consulta individualmente con su ID y diagnóstico.
 - Tono: Ejecutivo, urgente pero profesional. Evita rodeos innecesarios.
+- Máximo 4 páginas por informe.
 - El número de informe sigue el formato: [CÓDIGO]-[ABREV_ESP]-[AÑO]-P[NÚM_PERÍODO] (ej: 000FV1-MG-2026-P003)
   - Abreviaturas de especialidad: MG (Medicina General), MI (Medicina Interna), PD (Pediatría), GY (Ginecología), PS (Psicología), NU (Nutrición), SS (Servicio Social)
 """
@@ -191,6 +226,7 @@ def build_analysis_prompt(
     clasificacion_table: str,
     tipificaciones_list: str,
     previous_period_data: str = "",
+    reporte_global_table: str = "",
 ) -> str:
     """Build the full prompt to send to Claude for analysis."""
     prompt = f"""# SOLICITUD DE REPORTE DE AUDITORÍA MÉDICA
@@ -221,6 +257,13 @@ def build_analysis_prompt(
 
 ---
 """
+    if reporte_global_table:
+        prompt += f"""
+## DATOS DE REPORTE GLOBAL (Cumplimiento por Componente):
+{reporte_global_table}
+
+---
+"""
     if previous_period_data:
         prompt += f"""
 ## DATOS DE PERÍODO ANTERIOR (para comparación):
@@ -235,10 +278,12 @@ def build_analysis_prompt(
 3. Usa EXACTAMENTE las tipificaciones del documento de tipificaciones, tal como están escritas.
 4. Clasifica cada hallazgo según el documento de clasificación de no conformidades.
 5. Para el cuadro de cumplimiento, usa los porcentajes EXACTOS del archivo de gráficas proporcionado.
-6. Si hay datos de período anterior, incluye el comentario de seguimiento comparando los últimos dos períodos.
-7. Aplica las categorías de color en texto: ROJO (<85%), ANARANJADO (85%-94%), AMARILLO (95%-97%), VERDE (98%-100%).
-8. Cuenta correctamente cada ID de consulta (números de 5 a 10 dígitos).
-9. Correlaciona el diagnóstico con cada hallazgo encontrado.
+6. Para el CUMPLIMIENTO POR COMPONENTES en el Resumen Ejecutivo, usa los datos del Reporte Global si fueron proporcionados.
+7. Si hay datos de período anterior, incluye el comentario de seguimiento y la tabla de TENDENCIAS comparando los últimos dos períodos.
+8. Si es el primer período auditado (sin datos de período anterior), NO incluyas la sección TENDENCIAS.
+9. Aplica las categorías de color en texto: ROJO (<85%), ANARANJADO (85%-94%), AMARILLO (95%-97%), VERDE (98%-100%).
+10. Cuenta correctamente cada ID de consulta (números de 5 a 10 dígitos).
+11. Correlaciona el diagnóstico con cada hallazgo encontrado.
 
 GENERA EL REPORTE AHORA:
 """
@@ -254,6 +299,7 @@ def analyze_with_claude(
     clasificacion_table: str,
     tipificaciones_list: str,
     previous_period_data: str = "",
+    reporte_global_table: str = "",
     api_key: str | None = None,
     model: str = "claude-opus-4-6",
     stream_callback=None,
@@ -281,6 +327,7 @@ def analyze_with_claude(
         clasificacion_table=clasificacion_table,
         tipificaciones_list=tipificaciones_list,
         previous_period_data=previous_period_data,
+        reporte_global_table=reporte_global_table,
     )
 
     if stream_callback:
@@ -324,10 +371,12 @@ def parse_report_sections(report_text: str) -> dict:
         "seguimiento": "",
         "tendencias": "",
         "score_summary": "",
+        "cumplimiento_componentes": "",
         "nc_table": "",
         "er_table": "",
         "sintesis": "",
         "conclusiones": "",
+        "firma": "",
         "full_text": report_text,
     }
 
@@ -372,12 +421,22 @@ def parse_report_sections(report_text: str) -> dict:
 
         # ── Section detection (order matters for specificity) ──
 
+        # CUMPLIMIENTO POR COMPONENTES (within Resumen Ejecutivo)
+        if "CUMPLIMIENTO POR COMPONENTES" in clean_upper or "CUMPLIMIENTO POR COMPONENTE" in clean_upper:
+            if current_section:
+                sections[current_section] = flush_buffer()
+            current_section = "cumplimiento_componentes"
         # TENDENCIAS
-        if clean_upper_no_num == "TENDENCIAS" or clean_upper == "TENDENCIAS":
+        elif clean_upper_no_num == "TENDENCIAS" or clean_upper == "TENDENCIAS":
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "tendencias"
-        # SCORE SUMMARY
+        # FIRMA
+        elif clean_upper_no_num == "FIRMA" or clean_upper == "FIRMA":
+            if current_section:
+                sections[current_section] = flush_buffer()
+            current_section = "firma"
+        # SCORE SUMMARY (legacy compatibility)
         elif "SCORE SUMMARY" in clean_upper or "SCORE_SUMMARY" in clean_upper:
             if current_section:
                 sections[current_section] = flush_buffer()
