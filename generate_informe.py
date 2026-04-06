@@ -440,7 +440,8 @@ def _parse_pipe_table(text: str) -> list[list[str]]:
 
 
 def add_qualitative_table(doc: Document, table_text: str, title: str):
-    """Add a qualitative analysis table (NC or ER) to the document."""
+    """Add a qualitative analysis table (NC or ER) to the document.
+    Groups rows by COMPONENTE and merges the first column vertically."""
     rows = _parse_pipe_table(table_text)
     if not rows:
         return
@@ -454,42 +455,78 @@ def add_qualitative_table(doc: Document, table_text: str, title: str):
     p.paragraph_format.space_before = Pt(6)
     p.paragraph_format.space_after = Pt(3)
 
-    num_cols = len(rows[0])
+    header_row = rows[0]
+    data_rows = rows[1:]
+    num_cols = len(header_row)
+
     # Column widths: COMPONENTE(1800) | CRITERIO(1600) | NC/ER(600) | TIPIFICACIÓN(2800) | IMPACTO(2560)
     COL_W = [1800, 1600, 600, 2800, 2560]
-    # Adjust if fewer columns
     while len(COL_W) < num_cols:
         COL_W.append(1800)
     COL_W = COL_W[:num_cols]
 
-    table = doc.add_table(rows=len(rows), cols=num_cols)
+    # Fill in empty COMPONENTE cells with the last non-empty value
+    # (Claude sometimes puts component only in first row of group)
+    last_comp = ""
+    for row in data_rows:
+        if row[0].strip():
+            last_comp = row[0].strip()
+        else:
+            row[0] = last_comp
+
+    # Identify component groups for vertical merging
+    groups = []  # [(start_index, count, component_name), ...]
+    i = 0
+    while i < len(data_rows):
+        comp = data_rows[i][0].strip()
+        count = 1
+        while i + count < len(data_rows) and data_rows[i + count][0].strip() == comp:
+            count += 1
+        groups.append((i, count, comp))
+        i += count
+
+    total_rows = 1 + len(data_rows)  # header + data
+    table = doc.add_table(rows=total_rows, cols=num_cols)
     _set_col_width(table, COL_W)
 
-    for i, row_cells in enumerate(rows):
-        row = table.rows[i]
-        if i == 0:
-            fill = DARK_BLUE
-            text_color = "FFFFFF"
-            bold = True
-        else:
-            fill = PALE_BLUE if (i - 1) % 2 == 0 else WHITE
-            text_color = "000000"
-            bold = False
+    # Header row
+    for j in range(num_cols):
+        cell = table.rows[0].cells[j]
+        val = header_row[j] if j < len(header_row) else ""
+        _style_cell(cell, DARK_BLUE, COL_W[j])
+        _para_text(cell, val, bold=True, font_size_pt=8,
+                   color_hex="FFFFFF", align=WD_ALIGN_PARAGRAPH.CENTER)
 
+    # Data rows
+    for row_idx, row_data in enumerate(data_rows):
+        word_row = table.rows[1 + row_idx]
+        alt_fill = PALE_BLUE if row_idx % 2 == 0 else WHITE
         for j in range(num_cols):
-            cell = row.cells[j]
-            val = row_cells[j] if j < len(row_cells) else ""
-            cell_fill = fill
-            # First column (COMPONENTE) gets blue background for data rows
-            if i > 0 and j == 0 and val.strip():
-                cell_fill = LIGHT_BLUE
-                bold_cell = True
+            cell = word_row.cells[j]
+            val = row_data[j] if j < len(row_data) else ""
+            if j == 0:
+                # Component column — styled but text set later via merge
+                _style_cell(cell, LIGHT_BLUE, COL_W[j])
             else:
-                bold_cell = bold
-            _style_cell(cell, cell_fill, COL_W[j])
-            align = WD_ALIGN_PARAGRAPH.CENTER if j in (0, 2) else WD_ALIGN_PARAGRAPH.LEFT
-            _para_text(cell, val, bold=bold_cell, font_size_pt=8,
-                       color_hex=text_color, align=align)
+                _style_cell(cell, alt_fill, COL_W[j])
+                align = WD_ALIGN_PARAGRAPH.CENTER if j == 2 else WD_ALIGN_PARAGRAPH.LEFT
+                _para_text(cell, val, bold=False, font_size_pt=8,
+                           color_hex="000000", align=align)
+
+    # Merge component cells vertically for each group
+    for start_idx, count, comp_name in groups:
+        if count > 1:
+            top_cell = table.cell(1 + start_idx, 0)
+            bottom_cell = table.cell(1 + start_idx + count - 1, 0)
+            merged = top_cell.merge(bottom_cell)
+            _style_cell(merged, LIGHT_BLUE, COL_W[0])
+            _para_text(merged, comp_name, bold=True, font_size_pt=8,
+                       color_hex="000000", align=WD_ALIGN_PARAGRAPH.CENTER)
+        else:
+            cell = table.cell(1 + start_idx, 0)
+            _style_cell(cell, LIGHT_BLUE, COL_W[0])
+            _para_text(cell, comp_name, bold=True, font_size_pt=8,
+                       color_hex="000000", align=WD_ALIGN_PARAGRAPH.CENTER)
 
     doc.add_paragraph()
 
