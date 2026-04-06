@@ -312,4 +312,12 @@ def build_informe_data(
         "nc_table": sections.get("nc_table", ""),
         "er_table": sections.get("er_table", ""),
         "sintesis": _strip_md(sections.get("sintesis", "")),
+        # Component compliance table (from Reporte Global)
+        "cumplimiento_componentes": sections.get("cumplimiento_componentes", ""),
+        # Tendencias
+        "tendencias": sections.get("tendencias", ""),
+        # Conclusiones
+        "conclusiones": sections.get("conclusiones", ""),
+        # Firma
+        "firma": sections.get("firma", ""),
     }

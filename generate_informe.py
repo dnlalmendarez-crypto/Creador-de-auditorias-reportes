@@ -539,6 +539,201 @@ def add_qualitative_table(doc: Document, table_text: str, title: str):
     doc.add_paragraph()
 
 
+def _add_component_compliance_table(doc: Document, table_text: str):
+    """Add the Cumplimiento por Componentes table to the DOCX."""
+    rows = _parse_pipe_table(table_text)
+    if not rows:
+        return
+
+    p = doc.add_paragraph()
+    run = p.add_run("Cumplimiento por Componentes")
+    run.bold = True
+    run.font.name = "Arial"
+    run.font.size = Pt(10)
+    p.paragraph_format.space_before = Pt(6)
+    p.paragraph_format.space_after = Pt(3)
+
+    num_cols = len(rows[0])
+    # Two columns: Componente | % Cumplimiento
+    COL_W = [4600, 4760]
+    while len(COL_W) < num_cols:
+        COL_W.append(2000)
+    COL_W = COL_W[:num_cols]
+
+    table = doc.add_table(rows=len(rows), cols=num_cols)
+    _set_col_width(table, COL_W)
+
+    # Color scale for compliance percentages
+    def _compliance_fill(val_str):
+        import re as _re
+        m = _re.search(r"[\d.]+", val_str)
+        if not m:
+            return WHITE, "000000"
+        val = float(m.group())
+        if val >= 98:
+            return "C6EFCE", "006100"
+        elif val >= 95:
+            return "FFEB9C", "9C6500"
+        elif val >= 85:
+            return "FBE5D6", "BF4D00"
+        else:
+            return "FFC7CE", "9C0006"
+
+    for i, row_cells in enumerate(rows):
+        row = table.rows[i]
+        if i == 0:
+            # Header
+            for j in range(num_cols):
+                cell = row.cells[j]
+                val = row_cells[j] if j < len(row_cells) else ""
+                _style_cell(cell, DARK_BLUE, COL_W[j])
+                _para_text(cell, val, bold=True, font_size_pt=9,
+                           color_hex="FFFFFF", align=WD_ALIGN_PARAGRAPH.CENTER)
+        else:
+            for j in range(num_cols):
+                cell = row.cells[j]
+                val = row_cells[j] if j < len(row_cells) else ""
+                if j == 0:
+                    # Component name
+                    is_summary = any(kw in val.lower() for kw in ["promedio", "puntaje"])
+                    fill = LIGHT_BLUE if is_summary else WHITE
+                    _style_cell(cell, fill, COL_W[j])
+                    _para_text(cell, val, bold=is_summary, font_size_pt=9,
+                               color_hex="000000", align=WD_ALIGN_PARAGRAPH.LEFT)
+                else:
+                    # Percentage — apply color
+                    if "%" in val:
+                        bg, fg = _compliance_fill(val)
+                        _style_cell(cell, bg, COL_W[j])
+                        _para_text(cell, val, bold=True, font_size_pt=9,
+                                   color_hex=fg, align=WD_ALIGN_PARAGRAPH.CENTER)
+                    else:
+                        _style_cell(cell, WHITE, COL_W[j])
+                        _para_text(cell, val, bold=True, font_size_pt=9,
+                                   color_hex="000000", align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    doc.add_paragraph()
+
+
+def _add_tendencias_section(doc: Document, tendencias_text: str):
+    """Add the Tendencias table (Positiva/Sostenida/Negativa) to DOCX."""
+    import re as _re
+    positiva = []
+    sostenida = []
+    negativa = []
+    current = None
+    for line in tendencias_text.split("\n"):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        upper = stripped.upper()
+        if "POSITIVA" in upper:
+            current = positiva
+            after = _re.sub(r".*positiva\s*:?\s*", "", stripped, flags=_re.IGNORECASE).strip()
+            if after and after != "-":
+                positiva.append(after)
+        elif "SOSTENIDA" in upper:
+            current = sostenida
+            after = _re.sub(r".*sostenida\s*:?\s*", "", stripped, flags=_re.IGNORECASE).strip()
+            if after and after != "-":
+                sostenida.append(after)
+        elif "NEGATIVA" in upper:
+            current = negativa
+            after = _re.sub(r".*negativa\s*:?\s*", "", stripped, flags=_re.IGNORECASE).strip()
+            if after and after != "-":
+                negativa.append(after)
+        elif current is not None:
+            clean = _re.sub(r"^[-•]\s*", "", stripped)
+            if clean:
+                current.append(clean)
+
+    max_rows = max(len(positiva), len(sostenida), len(negativa), 1)
+
+    COL_W = [3120, 3120, 3120]
+    table = doc.add_table(rows=1 + max_rows, cols=3)
+    _set_col_width(table, COL_W)
+
+    # Header row
+    headers = [("POSITIVA", "38761D"), ("SOSTENIDA", "FF9900"), ("NEGATIVA", "980000")]
+    for j, (label, color) in enumerate(headers):
+        cell = table.rows[0].cells[j]
+        _style_cell(cell, color, COL_W[j])
+        _para_text(cell, label, bold=True, font_size_pt=9,
+                   color_hex="FFFFFF", align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    # Data rows
+    for r in range(max_rows):
+        row = table.rows[1 + r]
+        for j, items in enumerate([positiva, sostenida, negativa]):
+            cell = row.cells[j]
+            val = items[r] if r < len(items) else ""
+            _style_cell(cell, WHITE, COL_W[j])
+            _para_text(cell, val, bold=False, font_size_pt=8,
+                       color_hex="000000", align=WD_ALIGN_PARAGRAPH.LEFT)
+
+    doc.add_paragraph()
+
+
+def _add_conclusiones_table(doc: Document, conclusiones_text: str):
+    """Add the Conclusiones y Acciones Requeridas table to DOCX."""
+    rows = _parse_pipe_table(conclusiones_text)
+    if not rows:
+        # Render as plain text if not a table
+        p = doc.add_paragraph(conclusiones_text)
+        if p.runs:
+            p.runs[0].font.name = "Arial"
+            p.runs[0].font.size = Pt(10)
+        return
+
+    num_cols = len(rows[0])
+    COL_W = [1800, 7560]
+    while len(COL_W) < num_cols:
+        COL_W.append(3000)
+    COL_W = COL_W[:num_cols]
+
+    priority_colors = {
+        "critica": "FFC7CE", "crítica": "FFC7CE",
+        "alta": "FBE5D6",
+        "media": "FFEB9C",
+    }
+    priority_text_colors = {
+        "critica": "9C0006", "crítica": "9C0006",
+        "alta": "BF4D00",
+        "media": "9C6500",
+    }
+
+    table = doc.add_table(rows=len(rows), cols=num_cols)
+    _set_col_width(table, COL_W)
+
+    for i, row_cells in enumerate(rows):
+        row = table.rows[i]
+        if i == 0:
+            for j in range(num_cols):
+                cell = row.cells[j]
+                val = row_cells[j] if j < len(row_cells) else ""
+                _style_cell(cell, DARK_BLUE, COL_W[j])
+                _para_text(cell, val, bold=True, font_size_pt=9,
+                           color_hex="FFFFFF", align=WD_ALIGN_PARAGRAPH.CENTER)
+        else:
+            for j in range(num_cols):
+                cell = row.cells[j]
+                val = row_cells[j] if j < len(row_cells) else ""
+                if j == 0:
+                    # Priority cell with color
+                    prio_key = val.lower().strip()
+                    fill = priority_colors.get(prio_key, WHITE)
+                    text_color = priority_text_colors.get(prio_key, "000000")
+                    _style_cell(cell, fill, COL_W[j])
+                    _para_text(cell, val, bold=True, font_size_pt=9,
+                               color_hex=text_color, align=WD_ALIGN_PARAGRAPH.CENTER)
+                else:
+                    _style_cell(cell, WHITE, COL_W[j])
+                    _para_text(cell, val, bold=False, font_size_pt=9,
+                               color_hex="000000", align=WD_ALIGN_PARAGRAPH.LEFT)
+
+    doc.add_paragraph()
+
+
 # ─── FUNCIÓN PRINCIPAL ───────────────────────────────────────────────────────
 
 def generate_informe(data: dict) -> bytes:
@@ -583,21 +778,23 @@ def generate_informe(data: dict) -> bytes:
     add_header_table(doc, data)
 
     # ── Resumen Ejecutivo ────────────────────────────────────────────────
-    add_section_title(doc, "RESUMEN EJECUTIVO")
+    add_section_title(doc, "1. RESUMEN EJECUTIVO")
     doc.add_paragraph(data.get("resumen_ejecutivo", ""))
 
-    hallazgos = data.get("hallazgos", {})
-    for comp, vals in hallazgos.items():
-        add_bold_body_paragraph(doc, [
-            (f"{comp}: ", True),
-            (f"se identifican {vals['nc'] + vals['er']} hallazgos; "
-             f"de los cuales {vals['nc']} son No Conformidades "
-             f"y {vals['er']} son Eventos de Riesgo.", False),
-        ])
+    # Cumplimiento por componentes table (from Reporte Global)
+    cumpl_comp = data.get("cumplimiento_componentes", "")
+    if cumpl_comp:
+        _add_component_compliance_table(doc, cumpl_comp)
+
+    # Tendencias table
+    tendencias = data.get("tendencias", "")
+    if tendencias:
+        _add_tendencias_section(doc, tendencias)
+
     doc.add_paragraph()
 
     # ── Reporte de cumplimiento ──────────────────────────────────────────
-    add_section_title(doc, "REPORTE DE CUMPLIMIENTO POR CRITERIO")
+    add_section_title(doc, "2. CUADRO DE CUMPLIMIENTO POR CRITERIO")
     add_compliance_table(doc, data.get("compliance_rows", []))
 
     # Leyenda
@@ -623,11 +820,11 @@ def generate_informe(data: dict) -> bytes:
     doc.add_paragraph()
 
     # ── Análisis de No Conformidades ─────────────────────────────────────
-    add_section_title(doc, "ANÁLISIS DE NO CONFORMIDADES")
-    add_section_title(doc, "ANÁLISIS CUANTITATIVO")
+    add_section_title(doc, "3. ANÁLISIS DE NO CONFORMIDADES")
+    add_section_title(doc, "3.1 ANÁLISIS CUANTITATIVO")
     add_quantitative_table(doc, data.get("citas", []))
 
-    add_section_title(doc, "ANÁLISIS CUALITATIVO POR COMPONENTE")
+    add_section_title(doc, "3.2 ANÁLISIS CUALITATIVO POR COMPONENTE")
 
     # Render structured qualitative tables if available
     nc_table_text = data.get("nc_table", "")
@@ -656,6 +853,56 @@ def generate_informe(data: dict) -> bytes:
         run.font.name = "Arial"
         run.font.size = Pt(10)
         run = p.add_run(sintesis_text)
+        run.font.name = "Arial"
+        run.font.size = Pt(10)
+
+    # ── Conclusiones y Acciones Requeridas ──────────────────────────────
+    conclusiones = data.get("conclusiones", "")
+    if conclusiones:
+        add_section_title(doc, "4. CONCLUSIONES Y ACCIONES REQUERIDAS")
+        _add_conclusiones_table(doc, conclusiones)
+
+    # ── Firma ────────────────────────────────────────────────────────────
+    firma = data.get("firma", "")
+    if firma:
+        doc.add_paragraph()
+        for line in firma.strip().split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            p = doc.add_paragraph()
+            # Bold the label part before ":"
+            if ":" in line:
+                label, value = line.split(":", 1)
+                run = p.add_run(f"{label}: ")
+                run.bold = True
+                run.font.name = "Arial"
+                run.font.size = Pt(10)
+                run = p.add_run(value.strip())
+                run.font.name = "Arial"
+                run.font.size = Pt(10)
+            else:
+                run = p.add_run(line)
+                run.font.name = "Arial"
+                run.font.size = Pt(10)
+    else:
+        # Default firma
+        import datetime as _dt
+        doc.add_paragraph()
+        p = doc.add_paragraph()
+        run = p.add_run("Auditor Responsable: ")
+        run.bold = True
+        run.font.name = "Arial"
+        run.font.size = Pt(10)
+        run = p.add_run("UGMC — Unidad de Gestión de Mejora Continua")
+        run.font.name = "Arial"
+        run.font.size = Pt(10)
+        p = doc.add_paragraph()
+        run = p.add_run("Fecha de Emisión: ")
+        run.bold = True
+        run.font.name = "Arial"
+        run.font.size = Pt(10)
+        run = p.add_run(_dt.date.today().strftime("%d/%m/%Y"))
         run.font.name = "Arial"
         run.font.size = Pt(10)
 
