@@ -421,7 +421,8 @@ def add_quantitative_table(doc: Document, citas: list):
 
 
 def _parse_pipe_table(text: str) -> list[list[str]]:
-    """Parse a markdown pipe-delimited table into rows of cells."""
+    """Parse a markdown pipe-delimited table into rows of cells.
+    Preserves empty cells to maintain column alignment."""
     import re as _re
     lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
     table_lines = [
@@ -432,8 +433,15 @@ def _parse_pipe_table(text: str) -> list[list[str]]:
     ]
     rows = []
     for line in table_lines:
-        cells = [_re.sub(r"\*\*([^*]+)\*\*", r"\1", c.strip())
-                 for c in line.split("|") if c.strip()]
+        # Split by | and strip leading/trailing empty segments from outer pipes
+        parts = line.split("|")
+        # Remove first and last empty strings from leading/trailing pipes
+        if parts and not parts[0].strip():
+            parts = parts[1:]
+        if parts and not parts[-1].strip():
+            parts = parts[:-1]
+        # Strip markdown bold and whitespace, but KEEP empty cells
+        cells = [_re.sub(r"\*\*([^*]+)\*\*", r"\1", c.strip()) for c in parts]
         if cells:
             rows.append(cells)
     return rows
