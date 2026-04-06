@@ -10,19 +10,28 @@ import base64
 from datetime import date
 
 
-# ─── COLOR PALETTE (matches the Word template) ──────────────────────────────
+# ─── COLOR PALETTE (pastel scheme matching new HTML template) ────────────────
 COLORS = {
-    "header_bg": "#1F3964",
+    "header_bg": "#1F3864",
     "header_text": "#FFFFFF",
-    "section_bg": "#2E74B5",
-    "subsection_bg": "#BDD7EE",
+    "section_title": "#2E75B6",
+    "comp_bg": "#D5E8F0",
+    "border": "#BFBFBF",
     "body_text": "#000000",
-    "table_header": "#1F3964",
+    # Compliance colors — pastel bg + text pairs
+    "green_bg": "#C6EFCE",
+    "green_text": "#006100",
+    "yellow_bg": "#FFEB9C",
+    "yellow_text": "#9C6500",
+    "orange_bg": "#FBE5D6",
+    "orange_text": "#BF4D00",
+    "red_bg": "#FFC7CE",
+    "red_text": "#9C0006",
+    # Legacy aliases kept for Pareto/general report functions
+    "section_bg": "#2E75B6",
+    "subsection_bg": "#BDD7EE",
+    "table_header": "#1F3864",
     "table_alt": "#D6E4F7",
-    "rojo": "#FF0000",
-    "anaranjado": "#FF6600",
-    "amarillo": "#FFC000",
-    "verde": "#00B050",
 }
 
 FONT = "Calibri, Arial, sans-serif"
@@ -180,6 +189,72 @@ body {{
     opacity: 1;
     pointer-events: none;
 }}
+/* ── Informe line (right-aligned, small gray) ── */
+.informe-line {{
+    text-align: right;
+    font-size: 9pt;
+    color: #808080;
+    margin-bottom: 6px;
+}}
+/* ── Cover banner (two-line: title + number) ── */
+.cover-table {{
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}}
+.cover-banner {{
+    background-color: {COLORS["header_bg"]};
+    color: {COLORS["header_text"]};
+    text-align: center;
+    font-weight: bold;
+    font-size: 14pt;
+    padding: 10px;
+}}
+.cover-banner-sub {{
+    font-size: 12pt;
+    font-weight: normal;
+    margin-top: 2px;
+}}
+.cover-row td {{
+    padding: 6px 12px;
+    border: 0.75pt solid {COLORS["border"]};
+}}
+.cover-row .cover-label {{
+    background-color: {COLORS["header_bg"]};
+    color: {COLORS["header_text"]};
+    font-weight: bold;
+    width: 220px;
+}}
+.cover-row .cover-value {{
+    background-color: #FFFFFF;
+}}
+/* ── Numbered section headings ── */
+.section-heading {{
+    color: {COLORS["section_title"]};
+    font-size: 13pt;
+    font-weight: bold;
+    margin-top: 22px;
+    margin-bottom: 10px;
+    border-bottom: 1.5pt solid {COLORS["section_title"]};
+    padding-bottom: 3px;
+}}
+.subsection-heading {{
+    color: {COLORS["section_title"]};
+    font-size: 11pt;
+    font-weight: bold;
+    margin-top: 14px;
+    margin-bottom: 6px;
+}}
+/* ── Legacy section-banner kept for Pareto reports ── */
+.section-banner {{
+    background-color: {COLORS["section_bg"]};
+    color: {COLORS["header_text"]};
+    font-weight: bold;
+    font-size: 12pt;
+    padding: 8px 16px;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}}
 h1 {{
     color: {COLORS["header_bg"]};
     font-size: 14pt;
@@ -204,37 +279,7 @@ p {{
     text-align: justify;
     margin: 4px 0;
 }}
-.cover-table {{
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 20px;
-}}
-.cover-banner {{
-    background-color: {COLORS["header_bg"]};
-    color: {COLORS["header_text"]};
-    text-align: center;
-    font-weight: bold;
-    font-size: 14pt;
-    padding: 10px;
-}}
-.cover-row td {{
-    background-color: {COLORS["subsection_bg"]};
-    padding: 6px 12px;
-    border: 1px solid #999;
-}}
-.cover-label {{
-    font-weight: bold;
-    width: 180px;
-}}
-.section-banner {{
-    background-color: {COLORS["section_bg"]};
-    color: {COLORS["header_text"]};
-    font-weight: bold;
-    font-size: 12pt;
-    padding: 8px 16px;
-    margin-top: 20px;
-    margin-bottom: 10px;
-}}
+/* ── Data tables (new border style) ── */
 .data-table {{
     width: 100%;
     border-collapse: collapse;
@@ -242,23 +287,24 @@ p {{
     font-size: 9pt;
 }}
 .data-table th {{
-    background-color: {COLORS["table_header"]};
+    background-color: {COLORS["header_bg"]};
     color: {COLORS["header_text"]};
     padding: 6px 8px;
     text-align: center;
     font-weight: bold;
-    border: 1px solid #666;
+    border: 0.75pt solid {COLORS["border"]};
 }}
 .data-table td {{
     padding: 5px 8px;
-    border: 1px solid #CCC;
+    border: 0.75pt solid {COLORS["border"]};
 }}
 .data-table tr:nth-child(even) td {{
     background-color: {COLORS["table_alt"]};
 }}
+/* Component cell (pastel blue) */
 .comp-cell {{
-    background-color: {COLORS["header_bg"]} !important;
-    color: {COLORS["header_text"]};
+    background-color: {COLORS["comp_bg"]} !important;
+    color: {COLORS["body_text"]};
     font-weight: bold;
     text-align: center;
     vertical-align: middle;
@@ -266,29 +312,115 @@ p {{
 .pct-cell {{
     text-align: center;
     font-weight: bold;
-    color: white;
 }}
+/* ── Tendencias table ── */
+.tend-table {{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 9pt;
+}}
+.tend-table th {{
+    padding: 6px 8px;
+    text-align: center;
+    font-weight: bold;
+    border: 0.75pt solid {COLORS["border"]};
+    color: #FFFFFF;
+}}
+.tend-table td {{
+    padding: 5px 8px;
+    border: 0.75pt solid {COLORS["border"]};
+    vertical-align: top;
+}}
+.th-positiva {{ background-color: #38761d; }}
+.th-sostenida {{ background-color: #ff9900; }}
+.th-negativa {{ background-color: #980000; }}
+/* ── Score summary table ── */
+.score-table {{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 9pt;
+}}
+.score-table th {{
+    background-color: {COLORS["header_bg"]};
+    color: {COLORS["header_text"]};
+    padding: 6px 8px;
+    text-align: center;
+    font-weight: bold;
+    border: 0.75pt solid {COLORS["border"]};
+}}
+.score-table td {{
+    padding: 5px 8px;
+    border: 0.75pt solid {COLORS["border"]};
+    text-align: center;
+}}
+/* ── NC/ER qualitative tables ── */
+.nc-table {{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 9pt;
+}}
+.nc-table th {{
+    background-color: {COLORS["header_bg"]};
+    color: {COLORS["header_text"]};
+    padding: 6px 8px;
+    text-align: center;
+    font-weight: bold;
+    border: 0.75pt solid {COLORS["border"]};
+}}
+.nc-table td {{
+    padding: 5px 8px;
+    border: 0.75pt solid {COLORS["border"]};
+    vertical-align: top;
+}}
+.nc-table .comp-cell {{
+    background-color: {COLORS["comp_bg"]} !important;
+    font-weight: bold;
+    text-align: center;
+}}
+/* ── Conclusiones table ── */
+.concl-table {{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 9pt;
+}}
+.concl-table th {{
+    background-color: {COLORS["header_bg"]};
+    color: {COLORS["header_text"]};
+    padding: 6px 8px;
+    text-align: center;
+    font-weight: bold;
+    border: 0.75pt solid {COLORS["border"]};
+}}
+.concl-table td {{
+    padding: 6px 8px;
+    border: 0.75pt solid {COLORS["border"]};
+    vertical-align: top;
+}}
+/* ── Legend as horizontal table row ── */
+.legend-table {{
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    font-size: 8pt;
+}}
+.legend-table td {{
+    padding: 4px 8px;
+    text-align: center;
+    font-weight: bold;
+    border: 0.75pt solid {COLORS["border"]};
+}}
+/* ── Seguimiento tendency labels ── */
+.tend-positiva {{ color: #38761d; font-weight: bold; }}
+.tend-negativa {{ color: #980000; font-weight: bold; }}
+.tend-sostenida {{ color: #ff9900; font-weight: bold; }}
 .separator {{
     border: none;
-    border-top: 2px solid {COLORS["section_bg"]};
+    border-top: 2px solid {COLORS["section_title"]};
     margin: 20px 0;
-}}
-.legend {{
-    display: flex;
-    gap: 16px;
-    font-size: 8pt;
-    margin-top: 8px;
-    flex-wrap: wrap;
-}}
-.legend-item {{
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}}
-.legend-box {{
-    width: 12px;
-    height: 12px;
-    display: inline-block;
 }}
 .footer {{
     text-align: center;
@@ -304,6 +436,11 @@ p {{
     display: block;
     margin: 10px auto;
     max-width: 100%;
+}}
+/* ── Quantitative total row ── */
+.total-row td {{
+    background-color: {COLORS["comp_bg"]} !important;
+    font-weight: bold;
 }}
 """
 
@@ -347,18 +484,24 @@ def _build_informe_number(doctor_code: str, specialty: str, period: str) -> str:
     year_match = re.search(r"20\d{2}", period)
     year_str = year_match.group(0) if year_match else str(date.today().year)
     period_num = "001"
-    month_map = {
-        "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
-        "julio": 7, "agosto": 8, "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
-    }
-    period_lower = period.lower()
-    for m_name, m_num in month_map.items():
-        if m_name in period_lower:
-            q_num = (m_num - 1) * 2 + 1
-            if "16" in period or "segunda" in period_lower:
-                q_num += 1
-            period_num = f"{q_num:03d}"
-            break
+
+    # Check for explicit P-format code (e.g. "P001", "P003")
+    p_match = re.search(r"P(\d{3})", period)
+    if p_match:
+        period_num = p_match.group(1)
+    else:
+        month_map = {
+            "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+            "julio": 7, "agosto": 8, "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
+        }
+        period_lower = period.lower()
+        for m_name, m_num in month_map.items():
+            if m_name in period_lower:
+                q_num = (m_num - 1) * 2 + 1
+                if "16" in period or "segunda" in period_lower:
+                    q_num += 1
+                period_num = f"{q_num:03d}"
+                break
     return f"{doctor_code}-{spec_abbrev}-{year_str}-P{period_num}"
 
 
@@ -368,20 +511,36 @@ def _esc(text: str) -> str:
             .replace(">", "&gt;").replace('"', "&quot;"))
 
 
-def _get_compliance_color(pct_str: str) -> str:
-    """Return hex color based on compliance percentage."""
+def _get_compliance_color(pct_str: str) -> tuple[str, str]:
+    """Return (bg_color, text_color) tuple based on compliance percentage."""
     try:
         val = float(pct_str.replace("%", "").replace(",", ".").strip())
         if val < 85:
-            return COLORS["rojo"]
+            return (COLORS["red_bg"], COLORS["red_text"])
         elif val < 95:
-            return COLORS["anaranjado"]
+            return (COLORS["orange_bg"], COLORS["orange_text"])
         elif val < 98:
-            return COLORS["amarillo"]
+            return (COLORS["yellow_bg"], COLORS["yellow_text"])
         else:
-            return COLORS["verde"]
+            return (COLORS["green_bg"], COLORS["green_text"])
     except Exception:
-        return "transparent"
+        return ("transparent", COLORS["body_text"])
+
+
+def _get_compliance_label(pct_str: str) -> str:
+    """Return compliance label for a percentage string."""
+    try:
+        val = float(pct_str.replace("%", "").replace(",", ".").strip())
+        if val >= 98:
+            return "Excelente"
+        elif val >= 95:
+            return "Muy Bueno"
+        elif val >= 85:
+            return "Aceptable"
+        else:
+            return "Op. de Mejora"
+    except Exception:
+        return ""
 
 
 def _strip_markdown(text: str) -> str:
@@ -452,10 +611,8 @@ def _body_text_to_html(text: str) -> str:
 
 
 def _compliance_table_to_html(text: str) -> str:
-    """Convert markdown compliance table to HTML with color-coded cells."""
+    """Convert markdown compliance table to HTML with pastel color-coded cells."""
     lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
-    # Filter: keep only real table rows (contain |), exclude separator rows (---)
-    # and the "Leyenda:" line which contains | but is not a table row
     table_lines = [
         l for l in lines
         if "|" in l
@@ -489,7 +646,6 @@ def _compliance_table_to_html(text: str) -> str:
         row = rows[i]
         comp = row[0] if row else ""
 
-        # Count consecutive rows with same component
         span = 1
         while i + span < len(rows) and rows[i + span][0] == comp:
             span += 1
@@ -501,13 +657,15 @@ def _compliance_table_to_html(text: str) -> str:
                 if j == 0:
                     if s == 0:
                         html.append(f'<td class="comp-cell" rowspan="{span}">{_esc(comp)}</td>')
-                    # Skip for subsequent rows (covered by rowspan)
                 elif j == 1:
                     html.append(f"<td>{_esc(cell)}</td>")
                 else:
                     if "%" in cell:
-                        color = _get_compliance_color(cell)
-                        html.append(f'<td class="pct-cell" style="background-color:{color}">{_esc(cell)}</td>')
+                        bg, fg = _get_compliance_color(cell)
+                        html.append(
+                            f'<td class="pct-cell" style="background-color:{bg};color:{fg}">'
+                            f'{_esc(cell)}</td>'
+                        )
                     elif cell.strip() == "-":
                         html.append(f'<td style="text-align:center;font-style:italic">{_esc(cell)}</td>')
                     else:
@@ -517,23 +675,23 @@ def _compliance_table_to_html(text: str) -> str:
 
     html.append("</tbody></table>")
 
-    # Color legend
-    html.append('<div class="legend">')
+    # Legend as horizontal table row
+    html.append('<table class="legend-table"><tr>')
     legend_items = [
-        (COLORS["verde"], "≥98% Óptimo"),
-        (COLORS["amarillo"], "≥ 95% a < 98% Muy Bueno"),
-        (COLORS["anaranjado"], "≥ 85% a < 95% Aceptable"),
-        (COLORS["rojo"], "<85% Oportunidad de mejora"),
+        (COLORS["green_bg"], COLORS["green_text"], "Excelente (≥98%)"),
+        (COLORS["yellow_bg"], COLORS["yellow_text"], "Muy Bueno (≥95% a <98%)"),
+        (COLORS["orange_bg"], COLORS["orange_text"], "Aceptable (≥85% a <95%)"),
+        (COLORS["red_bg"], COLORS["red_text"], "Op. de Mejora (<85%)"),
     ]
-    for color, label in legend_items:
-        html.append(f'<span class="legend-item"><span class="legend-box" style="background:{color}"></span>{label}</span>')
-    html.append("</div>")
+    for bg, fg, label in legend_items:
+        html.append(f'<td style="background-color:{bg};color:{fg}">{label}</td>')
+    html.append("</tr></table>")
 
     return "\n".join(html)
 
 
 def _quantitative_table_to_html(text: str) -> str:
-    """Convert markdown quantitative table to HTML."""
+    """Convert markdown quantitative table to HTML with total-row styling."""
     lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
     table_lines = [l for l in lines if "|" in l and "---" not in l]
     if not table_lines:
@@ -554,7 +712,9 @@ def _quantitative_table_to_html(text: str) -> str:
     html.append("</tr></thead><tbody>")
 
     for row in rows[1:]:
-        html.append("<tr>")
+        is_total = any("TOTAL" in _strip_markdown(c).upper() for c in row)
+        tr_class = ' class="total-row"' if is_total else ""
+        html.append(f"<tr{tr_class}>")
         for cell in row:
             clean = _strip_markdown(cell)
             html.append(f"<td>{_esc(clean)}</td>")
@@ -603,6 +763,177 @@ def _pareto_table_to_html(text: str) -> str:
 
 # ─── INDIVIDUAL REPORT ───────────────────────────────────────────────────────
 
+def _tendencias_to_html(text: str) -> str:
+    """Convert TENDENCIAS section to a 3-column table."""
+    positiva = []
+    sostenida = []
+    negativa = []
+    current = None
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        upper = stripped.upper()
+        if "POSITIVA" in upper:
+            current = positiva
+            # Check if there is content after the label on same line
+            after = re.sub(r".*positiva\s*:?\s*", "", stripped, flags=re.IGNORECASE).strip()
+            if after and after != "-":
+                positiva.append(after)
+        elif "SOSTENIDA" in upper:
+            current = sostenida
+            after = re.sub(r".*sostenida\s*:?\s*", "", stripped, flags=re.IGNORECASE).strip()
+            if after and after != "-":
+                sostenida.append(after)
+        elif "NEGATIVA" in upper:
+            current = negativa
+            after = re.sub(r".*negativa\s*:?\s*", "", stripped, flags=re.IGNORECASE).strip()
+            if after and after != "-":
+                negativa.append(after)
+        elif current is not None:
+            clean = re.sub(r"^[-•]\s*", "", stripped)
+            if clean:
+                current.append(clean)
+
+    max_rows = max(len(positiva), len(sostenida), len(negativa), 1)
+    html = ['<table class="tend-table">']
+    html.append('<thead><tr>')
+    html.append('<th class="th-positiva">POSITIVA</th>')
+    html.append('<th class="th-sostenida">SOSTENIDA</th>')
+    html.append('<th class="th-negativa">NEGATIVA</th>')
+    html.append('</tr></thead><tbody>')
+    for r in range(max_rows):
+        html.append("<tr>")
+        html.append(f"<td>{_esc(positiva[r]) if r < len(positiva) else ''}</td>")
+        html.append(f"<td>{_esc(sostenida[r]) if r < len(sostenida) else ''}</td>")
+        html.append(f"<td>{_esc(negativa[r]) if r < len(negativa) else ''}</td>")
+        html.append("</tr>")
+    html.append("</tbody></table>")
+    return "\n".join(html)
+
+
+def _score_summary_to_html(text: str) -> str:
+    """Convert SCORE SUMMARY section to an HTML table."""
+    lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+    table_lines = [l for l in lines if "|" in l and "---" not in l]
+    if not table_lines:
+        return f"<p>{_esc(text)}</p>"
+
+    rows = []
+    for line in table_lines:
+        cells = [c.strip() for c in line.split("|") if c.strip()]
+        rows.append(cells)
+    if not rows:
+        return ""
+
+    html = ['<table class="score-table">']
+    html.append("<thead><tr>")
+    for cell in rows[0]:
+        html.append(f"<th>{_esc(_strip_markdown(cell))}</th>")
+    html.append("</tr></thead><tbody>")
+
+    for row in rows[1:]:
+        html.append("<tr>")
+        for j, cell in enumerate(row):
+            clean = _strip_markdown(cell)
+            # Apply color to percentage and calificacion cells
+            if "%" in cell:
+                bg, fg = _get_compliance_color(cell)
+                html.append(f'<td style="background-color:{bg};color:{fg};font-weight:bold;text-align:center">{_esc(clean)}</td>')
+            elif clean.lower() in ("excelente", "muy bueno", "aceptable", "op. de mejora"):
+                label_map = {
+                    "excelente": (COLORS["green_bg"], COLORS["green_text"]),
+                    "muy bueno": (COLORS["yellow_bg"], COLORS["yellow_text"]),
+                    "aceptable": (COLORS["orange_bg"], COLORS["orange_text"]),
+                    "op. de mejora": (COLORS["red_bg"], COLORS["red_text"]),
+                }
+                bg, fg = label_map.get(clean.lower(), ("transparent", "#000"))
+                html.append(f'<td style="background-color:{bg};color:{fg};font-weight:bold;text-align:center">{_esc(clean)}</td>')
+            else:
+                html.append(f"<td style='text-align:center'>{_esc(clean)}</td>")
+        html.append("</tr>")
+
+    html.append("</tbody></table>")
+    return "\n".join(html)
+
+
+def _nc_er_table_to_html(text: str, table_title: str) -> str:
+    """Convert NC or ER qualitative table (pipe-delimited) to HTML."""
+    lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+    table_lines = [l for l in lines if "|" in l and "---" not in l]
+    if not table_lines:
+        return f"<p>{_esc(text)}</p>"
+
+    rows = []
+    for line in table_lines:
+        cells = [c.strip() for c in line.split("|") if c.strip()]
+        rows.append(cells)
+    if not rows:
+        return ""
+
+    html = [f'<p style="font-weight:bold;font-size:10pt;margin-top:10px">{_esc(table_title)}</p>']
+    html.append('<table class="nc-table">')
+    html.append("<thead><tr>")
+    for cell in rows[0]:
+        html.append(f"<th>{_esc(_strip_markdown(cell))}</th>")
+    html.append("</tr></thead><tbody>")
+
+    for row in rows[1:]:
+        html.append("<tr>")
+        for j, cell in enumerate(row):
+            clean = _strip_markdown(cell)
+            if j == 0:
+                html.append(f'<td class="comp-cell">{_esc(clean)}</td>')
+            else:
+                html.append(f"<td>{_md_to_html_inline(_esc(clean))}</td>")
+        html.append("</tr>")
+
+    html.append("</tbody></table>")
+    return "\n".join(html)
+
+
+def _conclusiones_to_html(text: str) -> str:
+    """Convert CONCLUSIONES section (pipe-delimited table) to HTML."""
+    lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+    table_lines = [l for l in lines if "|" in l and "---" not in l]
+    if not table_lines:
+        return f"<p>{_esc(text)}</p>"
+
+    rows = []
+    for line in table_lines:
+        cells = [c.strip() for c in line.split("|") if c.strip()]
+        rows.append(cells)
+    if not rows:
+        return ""
+
+    priority_colors = {
+        "critica": (COLORS["red_bg"], COLORS["red_text"]),
+        "crítica": (COLORS["red_bg"], COLORS["red_text"]),
+        "alta": (COLORS["orange_bg"], COLORS["orange_text"]),
+        "media": (COLORS["yellow_bg"], COLORS["yellow_text"]),
+    }
+
+    html = ['<table class="concl-table">']
+    html.append("<thead><tr>")
+    for cell in rows[0]:
+        html.append(f"<th>{_esc(_strip_markdown(cell))}</th>")
+    html.append("</tr></thead><tbody>")
+
+    for row in rows[1:]:
+        html.append("<tr>")
+        for j, cell in enumerate(row):
+            clean = _strip_markdown(cell)
+            if j == 0:
+                bg, fg = priority_colors.get(clean.lower().strip(), ("transparent", "#000"))
+                html.append(f'<td style="background-color:{bg};color:{fg};font-weight:bold;text-align:center">{_esc(clean)}</td>')
+            else:
+                html.append(f"<td>{_md_to_html_inline(_esc(clean))}</td>")
+        html.append("</tr>")
+
+    html.append("</tbody></table>")
+    return "\n".join(html)
+
+
 def generate_report_html(
     doctor_name: str,
     doctor_code: str,
@@ -613,6 +944,25 @@ def generate_report_html(
     """Generate individual doctor audit report as HTML string."""
     informe_num = _build_informe_number(doctor_code, specialty, period)
 
+    # Count totals for info table from cuantitativo section
+    total_consultas = "-"
+    total_nc = "-"
+    total_er = "-"
+    if report_sections.get("cuantitativo"):
+        quant_lines = [l.strip() for l in report_sections["cuantitativo"].split("\n")
+                       if "|" in l and "---" not in l]
+        for ql in reversed(quant_lines):
+            cells = [c.strip() for c in ql.split("|") if c.strip()]
+            if cells and "TOTAL" in cells[0].upper():
+                if len(cells) >= 3:
+                    total_nc = _strip_markdown(cells[-2])
+                    total_er = _strip_markdown(cells[-1])
+                break
+        # Count data rows (excluding header and total) as total consultas
+        data_rows = [l for l in quant_lines[1:] if "TOTAL" not in l.upper()]
+        if data_rows:
+            total_consultas = str(len(data_rows))
+
     parts = [f"""<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="utf-8"><style>{BASE_CSS}</style></head>
@@ -622,58 +972,115 @@ def generate_report_html(
     # ── Header + Watermark ──
     parts.append(_header_and_watermark_html())
 
-    # ── Cover table ──
+    # ── Informe line (right-aligned) ──
+    parts.append(f'<p class="informe-line">Informe {_esc(informe_num)}</p>')
+
+    # ── Cover banner (two lines) + Info table ──
     parts.append(f"""
 <table class="cover-table">
-<tr><td colspan="2" class="cover-banner">INFORME DE AUDITORÍA N° {_esc(informe_num)}</td></tr>
-<tr class="cover-row"><td class="cover-label">NOMBRE</td><td>{_esc(doctor_name.upper())}</td></tr>
-<tr class="cover-row"><td class="cover-label">CÓDIGO</td><td>{_esc(doctor_code)}</td></tr>
-<tr class="cover-row"><td class="cover-label">ESPECIALIDAD</td><td>{_esc(specialty.upper())}</td></tr>
-<tr class="cover-row"><td class="cover-label">DEPENDENCIA</td><td>Doctor SV - El Salvador</td></tr>
-<tr class="cover-row"><td class="cover-label">PERIODO AUDITADO</td><td>{_esc(period)}</td></tr>
+<tr><td colspan="2" class="cover-banner">
+  INFORME DE AUDITOR&Iacute;A M&Eacute;DICA<br/>
+  <span class="cover-banner-sub">N&deg; {_esc(informe_num)}</span>
+</td></tr>
+<tr class="cover-row"><td class="cover-label">NOMBRE</td><td class="cover-value">{_esc(doctor_name.upper())}</td></tr>
+<tr class="cover-row"><td class="cover-label">C&Oacute;DIGO</td><td class="cover-value">{_esc(doctor_code)}</td></tr>
+<tr class="cover-row"><td class="cover-label">ESPECIALIDAD</td><td class="cover-value">{_esc(specialty.upper())}</td></tr>
+<tr class="cover-row"><td class="cover-label">DEPENDENCIA</td><td class="cover-value">Doctor SV - El Salvador</td></tr>
+<tr class="cover-row"><td class="cover-label">PERIODO AUDITADO</td><td class="cover-value">{_esc(period)}</td></tr>
+<tr class="cover-row"><td class="cover-label">TOTAL CONSULTAS AUDITADAS</td><td class="cover-value">{_esc(total_consultas)}</td></tr>
+<tr class="cover-row"><td class="cover-label">NO CONFORMIDADES</td><td class="cover-value">{_esc(total_nc)}</td></tr>
+<tr class="cover-row"><td class="cover-label">EVENTOS DE RIESGO</td><td class="cover-value">{_esc(total_er)}</td></tr>
 </table>
 """)
 
-    # ── Resumen Ejecutivo ──
+    # ── 1. RESUMEN EJECUTIVO ──
     if report_sections.get("resumen_ejecutivo"):
-        parts.append("<h1>RESUMEN EJECUTIVO</h1>")
+        parts.append('<div class="section-heading">1. RESUMEN EJECUTIVO</div>')
         parts.append(_body_text_to_html(report_sections["resumen_ejecutivo"]))
 
-    # ── Reporte de Cumplimiento ──
+    # Tendencias table (within resumen)
+    if report_sections.get("tendencias"):
+        parts.append(_tendencias_to_html(report_sections["tendencias"]))
+
+    # Score summary table (within resumen)
+    if report_sections.get("score_summary"):
+        parts.append(_score_summary_to_html(report_sections["score_summary"]))
+
+    # ── 2. CUADRO DE CUMPLIMIENTO POR CRITERIO ──
     if report_sections.get("cumplimiento"):
-        parts.append('<div class="section-banner">REPORTE DE CUMPLIMIENTO POR CRITERIO</div>')
+        parts.append('<div class="section-heading">2. CUADRO DE CUMPLIMIENTO POR CRITERIO</div>')
         parts.append('<p style="font-size:10pt;font-style:italic">'
-                     'Nivel de cumplimiento por criterio evaluado, organizado por Criterio clínico. '
+                     'Nivel de cumplimiento por criterio evaluado, organizado por Criterio cl&iacute;nico. '
                      'Los porcentajes se calculan sobre el total de citas auditadas.</p>')
         parts.append(_compliance_table_to_html(report_sections["cumplimiento"]))
 
-    # ── Comentario de Seguimiento ──
+    # Comentario de seguimiento (after legend, within section 2)
     if report_sections.get("seguimiento"):
-        parts.append("<h1>COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERÍODOS</h1>")
-        parts.append(_body_text_to_html(report_sections["seguimiento"]))
+        seguimiento_text = report_sections["seguimiento"]
+        # Colorize tendency labels
+        seguimiento_text = re.sub(
+            r"(?i)(tendencia\s+positiva)",
+            r'<span class="tend-positiva">\1</span>',
+            seguimiento_text,
+        )
+        seguimiento_text = re.sub(
+            r"(?i)(tendencia\s+negativa)",
+            r'<span class="tend-negativa">\1</span>',
+            seguimiento_text,
+        )
+        seguimiento_text = re.sub(
+            r"(?i)(tendencia\s+sostenida)",
+            r'<span class="tend-sostenida">\1</span>',
+            seguimiento_text,
+        )
+        parts.append(f'<div class="subsection-heading">Comentario de seguimiento</div>')
+        parts.append(_body_text_to_html(seguimiento_text))
 
-    # ── Análisis de No Conformidades ──
+    # ── 3. ANALISIS DE NO CONFORMIDADES ──
     parts.append('<div class="page-break"></div>')
+    parts.append('<div class="section-heading">3. AN&Aacute;LISIS DE NO CONFORMIDADES</div>')
 
+    # 3.1 Analisis Cuantitativo
     if report_sections.get("cuantitativo"):
-        parts.append("<h2>ANÁLISIS DE NO CONFORMIDADES</h2>")
-        parts.append("<h2>ANÁLISIS CUANTITATIVO</h2>")
+        parts.append('<div class="subsection-heading">3.1 An&aacute;lisis Cuantitativo</div>')
         parts.append(_quantitative_table_to_html(report_sections["cuantitativo"]))
 
-    if report_sections.get("cualitativo") or report_sections.get("no_conformidades"):
-        parts.append("<h2>ANÁLISIS CUALITATIVO</h2>")
-        if report_sections.get("cualitativo"):
-            parts.append(_body_text_to_html(report_sections["cualitativo"]))
-        if report_sections.get("no_conformidades"):
-            parts.append("<h2>Análisis de No Conformidades</h2>")
-            parts.append(_body_text_to_html(report_sections["no_conformidades"]))
-        parts.append('<hr class="separator"/>')
-        if report_sections.get("eventos_riesgo"):
-            parts.append("<h2>Análisis de Eventos de Riesgo</h2>")
-            parts.append(_body_text_to_html(report_sections["eventos_riesgo"]))
+    # 3.2 Analisis Cualitativo por Componente
+    has_qual = (report_sections.get("nc_table") or report_sections.get("er_table")
+                or report_sections.get("cualitativo") or report_sections.get("no_conformidades"))
+    if has_qual:
+        parts.append('<div class="subsection-heading">3.2 An&aacute;lisis Cualitativo por Componente</div>')
+
+        # Structured NC table
+        if report_sections.get("nc_table"):
+            parts.append(_nc_er_table_to_html(report_sections["nc_table"], "Tabla de No Conformidades"))
+
+        # Structured ER table
+        if report_sections.get("er_table"):
+            parts.append(_nc_er_table_to_html(report_sections["er_table"], "Tabla de Eventos de Riesgo"))
+
+        # Fallback: if Claude produced old-style prose instead of tables
+        if not report_sections.get("nc_table") and not report_sections.get("er_table"):
+            if report_sections.get("cualitativo"):
+                parts.append(_body_text_to_html(report_sections["cualitativo"]))
+            if report_sections.get("no_conformidades"):
+                parts.append('<hr class="separator"/>')
+                parts.append(_body_text_to_html(report_sections["no_conformidades"]))
+            if report_sections.get("eventos_riesgo"):
+                parts.append('<hr class="separator"/>')
+                parts.append(_body_text_to_html(report_sections["eventos_riesgo"]))
+
+    # Sintesis paragraph
+    if report_sections.get("sintesis"):
+        parts.append(f'<p style="margin-top:12px">{_md_to_html_inline(_esc(report_sections["sintesis"]))}</p>')
+
+    # ── 4. CONCLUSIONES Y ACCIONES REQUERIDAS ──
+    if report_sections.get("conclusiones"):
+        parts.append('<div class="section-heading">4. CONCLUSIONES Y ACCIONES REQUERIDAS</div>')
+        parts.append(_conclusiones_to_html(report_sections["conclusiones"]))
 
     # ── Footer ──
-    parts.append('<p class="footer">Documento generado automáticamente por el Sistema de Auditoría Médica de Calidad</p>')
+    parts.append('<p class="footer">Documento generado autom&aacute;ticamente por el Sistema de Auditor&iacute;a M&eacute;dica de Calidad</p>')
     parts.append("</body></html>")
 
     return "\n".join(parts)

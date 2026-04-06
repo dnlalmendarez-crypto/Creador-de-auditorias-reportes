@@ -29,7 +29,7 @@ PROTOCOLO DE VERIFICACIÓN CRUZADA:
 - Si encuentras una discrepancia entre los hallazgos y el porcentaje, no asumas el error, simplemente transcribe los datos exactos que figuran en la celda.
 - Presenta la tabla de porcentajes con el nombre del médico para asegurar que no hayan saltos o cambios de datos.
 
-FORMATO DE SALIDA OBLIGATORIO — Sigue este formato EXACTO, incluyendo las líneas separadoras y la estructura de encabezados:
+FORMATO DE SALIDA OBLIGATORIO — Sigue este formato EXACTO, incluyendo las líneas separadoras y la estructura de encabezados. Las secciones están NUMERADAS:
 
 ---
 
@@ -41,7 +41,7 @@ ESPECIALIDAD: [ESPECIALIDAD COMPLETA]
 DEPENDENCIA: Doctor SV - El Salvador
 PERIODO AUDITADO: [Fecha inicio] al [Fecha fin] [mes] [año]
 
-RESUMEN EJECUTIVO
+1. RESUMEN EJECUTIVO
 
 Se evidencia un perfil de riesgo con afectación crítica en los componentes de [top 3 componentes más afectados]. El criterio más afectado es [COMPONENTE] ([Criterio específico]), debido a [hallazgo clave resumido].
 
@@ -49,14 +49,36 @@ Se identificaron [X] No Conformidades en total; También se identificaron [Y] Ev
 
 Componentes y número de hallazgos:
 
-ANAMNESIS: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
-EXAMEN FÍSICO: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
-DIAGNÓSTICO: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
-PRODUCTOS DE LA CONSULTA: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
+- ANAMNESIS: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
+- EXAMEN FÍSICO: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
+- DIAGNÓSTICO: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
+- PRODUCTOS DE LA CONSULTA: se identifican [N] hallazgos; de los cuales [X] son No Conformidades y [Y] son Eventos de Riesgo.
 
 (NOTA: Si un componente tiene 0 hallazgos, omite ese componente del listado. Si tiene exactamente 1, usa "se identifica 1 hallazgo; el cual corresponde a [No Conformidad/Evento de Riesgo].")
 
-REPORTE DE CUMPLIMIENTO POR CRITERIO
+TENDENCIAS
+
+Positiva: [Criterio1, Criterio2, ...]
+Sostenida: [Criterio1, Criterio2, ...]
+Negativa: [Criterio1, Criterio2, ...]
+
+(NOTA: Si solo hay un período auditado, escribe "No aplica — solo un período auditado" bajo cada categoría.)
+
+SCORE SUMMARY
+
+| Componente | % Cumplimiento |
+|---|---|
+| Anamnesis | XX% |
+| Examen Físico | XX% |
+| Diagnóstico | XX% |
+| Productos | XX% |
+| % Promedio | XX% |
+| Puntaje | X.X/10 |
+| Calificación | [Excelente/Muy Bueno/Aceptable/Op. de Mejora] |
+
+(NOTA: El % promedio es el promedio de los cuatro componentes. El puntaje es % promedio / 10. La Calificación sigue los rangos: ≥98% Excelente, ≥95% Muy Bueno, ≥85% Aceptable, <85% Op. de Mejora.)
+
+2. CUADRO DE CUMPLIMIENTO POR CRITERIO
 
 Nivel de cumplimiento por criterio evaluado, organizado por Criterio clínico. Los porcentajes se calculan sobre el total de citas auditadas.
 
@@ -85,7 +107,7 @@ Nivel de cumplimiento por criterio evaluado, organizado por Criterio clínico. L
 | PRODUCTOS DE LA CONSULTA | Recomendaciones | XX% | XX% |
 | PRODUCTOS DE LA CONSULTA | Seguimiento | XX% | XX% |
 
-Leyenda: ROJO (<85% Oportunidad de mejora) | ANARANJADO (85%-94% Aceptable) | AMARILLO (95%-97% Muy Bueno) | VERDE (>=98% Óptimo)
+Leyenda: Excelente (≥98%) | Muy Bueno (≥95% a <98%) | Aceptable (≥85% a <95%) | Op. de Mejora (<85%)
 
 REGLAS del cuadro de cumplimiento:
 - SIEMPRE genera la tabla markdown con pipes (|) aunque solo haya un período. NUNCA omitas esta tabla.
@@ -104,84 +126,56 @@ Tendencia positiva: (únicamente los criterios con aumento en el porcentaje)
 Tendencia Negativa: (únicamente los criterios con disminución del porcentaje)
 Tendencia sostenida: (criterios sin variación entre periodos, énfasis en datos por debajo de 90%)"
 
-ANÁLISIS DE NO CONFORMIDADES
+3. ANÁLISIS DE NO CONFORMIDADES
 
-ANÁLISIS CUANTITATIVO
+3.1 ANÁLISIS CUANTITATIVO
 
-| Num Cita | Diagnóstico | No Conformidades | Eventos de Riesgo |
-|---|---|---|---|
-| [ID consulta] | [Código CIE] - [Descripción diagnóstica completa] | [N] | [N] |
-| ... | ... | ... | ... |
-| **TOTAL** | | **[X]** | **[Y]** |
+| ID CITA | DIAGNÓSTICO (CIE-11) | NOTA | NC | ER |
+|---|---|---|---|---|
+| [ID consulta] | [Código CIE] - [Descripción] | [Nota breve del hallazgo] | [N] | [N] |
+| ... | ... | ... | ... | ... |
+| **TOTAL** | | | **[X]** | **[Y]** |
 
-ANÁLISIS CUALITATIVO
+3.2 ANÁLISIS CUALITATIVO POR COMPONENTE
 
-"Se ha realizado un análisis de un total de [N] auditorías. Se identificaron [X] No conformidades y [Y] Eventos de Riesgo, lo que destaca áreas de mejora significativas en la documentación y la práctica clínica.
+TABLA DE NO CONFORMIDADES
 
-Análisis de No Conformidades
+| COMPONENTE | CRITERIO | NC | TIPIFICACIÓN | IMPACTO EN LA ATENCIÓN |
+|---|---|---|---|---|
+| [COMPONENTE] | [Criterio afectado] | [N] | [Texto exacto del diccionario] | [Impacto clínico sintetizado, max 2 líneas] |
+| ... | ... | ... | ... | ... |
 
-Se identificaron [X] No Conformidades, las cuales afectan principalmente a los componentes de [COMPONENTES AFECTADOS].
+TABLA DE EVENTOS DE RIESGO
 
-1. [COMPONENTE]
+| COMPONENTE | CRITERIO | ER | TIPIFICACIÓN | IMPACTO EN LA ATENCIÓN |
+|---|---|---|---|---|
+| [COMPONENTE] | [Criterio afectado] | [N] | [Texto exacto del diccionario] | [Impacto clínico sintetizado, max 2 líneas] |
+| ... | ... | ... | ... | ... |
 
-[Criterio afectado subrayado]
+SÍNTESIS
 
-No conformidades Identificadas: ([N]):
+[Párrafo de síntesis de máximo 5 líneas que integre los hallazgos más relevantes del análisis cualitativo, correlacionando con el diagnóstico y el impacto en la atención al paciente.]
 
-Tipificación: [Texto exacto del diccionario de tipificaciones]
+4. CONCLUSIONES Y ACCIONES REQUERIDAS
 
-Hallazgos: En [las/la] consulta(s) auditada(s) (ID [lista de IDs]) el médico [descripción sintetizada del hallazgo, correlacionando con el diagnóstico]. MÁXIMO 5 LÍNEAS DE TEXTO.
+| PRIORIDAD | ACCIÓN REQUERIDA |
+|---|---|
+| CRÍTICA | [Acción correctiva urgente...] |
+| ALTA | [Acción correctiva importante...] |
+| MEDIA | [Acción de mejora continua...] |
 
-Impacto en la atención: [Descripción sintetizada del impacto clínico real y potencial en el paciente]. MÁXIMO 5 LÍNEAS DE TEXTO.
-
-[Siguiente criterio del mismo componente si aplica...]
-
-2. [SIGUIENTE COMPONENTE]
-
-[Criterio afectado subrayado]
-
-No conformidades Identificadas: ([N]):
-
-Tipificación: [Texto exacto]
-
-Hallazgos: [Detalle sintetizado por consulta con correlación diagnóstica — máximo 5 líneas]
-
-Impacto en la atención: [Descripción sintetizada del impacto — máximo 5 líneas]
-
-...continúa hasta completar todos los componentes afectados...
-
-────────────────────────────────────────────────────────────
-
-Análisis de Eventos de Riesgo
-
-Se identificaron [Y] Eventos de Riesgo, los cuales si bien no son de gravedad crítica se convierten en oportunidades de mejora que se centran principalmente en los componentes de [COMPONENTES AFECTADOS].
-
-1. [COMPONENTE]
-
-[Criterio afectado subrayado]
-
-Evento de Riesgo Identificado: ([N]):
-
-Tipificación: [Texto exacto del diccionario de tipificaciones]
-
-Hallazgos: En [las/la] consulta(s) (ID [lista]) [descripción sintetizada por consulta con correlación diagnóstica]. MÁXIMO 5 LÍNEAS DE TEXTO.
-
-Impacto en la atención: [Descripción sintetizada del impacto]. MÁXIMO 5 LÍNEAS DE TEXTO.
-
-[Siguiente criterio si aplica...]
-
-2. [SIGUIENTE COMPONENTE]
-
-...continúa hasta completar todos los componentes afectados..."
+(NOTA: Incluir entre 3 y 6 acciones. Prioridades posibles: CRÍTICA, ALTA, MEDIA. Las acciones deben ser específicas, medibles y relacionadas directamente con los hallazgos.)
 
 ---
 
 IMPORTANTE sobre el formato:
 - ESTRICTAMENTE, sigue el formato línea por línea como se especifica arriba.
-- Cada tipificación debe tener su propio bloque de Tipificación + Hallazgos + Impacto.
-- Los hallazgos SIEMPRE deben detallar CADA consulta individualmente con su ID y diagnóstico, pero de forma SINTETIZADA (máximo 5 líneas de texto por bloque de Hallazgos).
-- El Impacto en la atención debe ser conciso y directo (máximo 5 líneas de texto por bloque).
-- El Resumen Ejecutivo NO debe tener tablas ni análisis extendido.
+- Las secciones están NUMERADAS: 1. RESUMEN EJECUTIVO, 2. CUADRO DE CUMPLIMIENTO, 3. ANÁLISIS DE NO CONFORMIDADES, 4. CONCLUSIONES Y ACCIONES REQUERIDAS.
+- TENDENCIAS y SCORE SUMMARY van DENTRO de la sección 1 (después de los hallazgos por componente).
+- Las tablas de análisis cualitativo (TABLA DE NO CONFORMIDADES, TABLA DE EVENTOS DE RIESGO) deben ser tablas markdown con pipes, NO prosa narrativa.
+- Cada fila de la tabla cualitativa = un hallazgo con su tipificación e impacto.
+- La sección SÍNTESIS va al final de la sección 3, como un párrafo integrador.
+- Los hallazgos SIEMPRE deben detallar CADA consulta individualmente con su ID y diagnóstico.
 - Tono: Ejecutivo, urgente pero profesional. Evita rodeos innecesarios.
 - El número de informe sigue el formato: [CÓDIGO]-[ABREV_ESP]-[AÑO]-P[NÚM_PERÍODO] (ej: 000FV1-MG-2026-P003)
   - Abreviaturas de especialidad: MG (Medicina General), MI (Medicina Interna), PD (Pediatría), GY (Ginecología), PS (Psicología), NU (Nutrición), SS (Servicio Social)
@@ -317,7 +311,8 @@ def parse_report_sections(report_text: str) -> dict:
     """
     Parse the Claude report into sections for document generation.
     Returns dict with keys: cuantitativo, cualitativo, no_conformidades,
-    eventos_riesgo, resumen_ejecutivo, cumplimiento, seguimiento
+    eventos_riesgo, resumen_ejecutivo, cumplimiento, seguimiento,
+    tendencias, score_summary, nc_table, er_table, sintesis, conclusiones
     """
     sections = {
         "cuantitativo": "",
@@ -327,6 +322,12 @@ def parse_report_sections(report_text: str) -> dict:
         "resumen_ejecutivo": "",
         "cumplimiento": "",
         "seguimiento": "",
+        "tendencias": "",
+        "score_summary": "",
+        "nc_table": "",
+        "er_table": "",
+        "sintesis": "",
+        "conclusiones": "",
         "full_text": report_text,
     }
 
@@ -346,48 +347,95 @@ def parse_report_sections(report_text: str) -> dict:
     for line in lines:
         line_stripped = line.strip()
         upper = line_stripped.upper()
+        # Remove markdown bold markers and leading numbers for matching
+        clean_upper = upper.replace("**", "").replace("#", "").strip()
+        # Strip leading section numbers like "1. ", "3.1 ", "3.2 "
+        clean_upper_no_num = clean_upper.lstrip("0123456789. ")
 
         # Skip informe header lines until we hit a real section
         if skip_header:
             if any(kw in upper for kw in [
-                "INFORME DE AUDITORÍA", "NOMBRE:", "NOMBRE ", "CÓDIGO:", "CÓDIGO ",
+                "INFORME DE AUDITORÍA", "INFORME DE AUDITORIA",
+                "NOMBRE:", "NOMBRE ", "CÓDIGO:", "CÓDIGO ",
                 "ESPECIALIDAD:", "ESPECIALIDAD ", "DEPENDENCIA:", "DEPENDENCIA ",
                 "PERIODO AUDITADO", "---",
             ]):
                 continue
-            if upper and not any(kw in upper for kw in ["RESUMEN", "REPORTE", "CUADRO", "ANÁLISIS", "COMENTARIO"]):
-                # Still in header area if it's just text with no section keyword
+            if upper and not any(kw in upper for kw in [
+                "RESUMEN", "REPORTE", "CUADRO", "ANÁLISIS", "ANALISIS",
+                "COMENTARIO", "TENDENCIA", "SCORE", "CONCLUSI", "SÍNTESIS", "SINTESIS",
+                "TABLA DE NO CONFORMIDADES", "TABLA DE EVENTOS",
+            ]):
                 if not current_section:
                     continue
             skip_header = False
 
-        if "ANÁLISIS CUANTITATIVO" in upper:
+        # ── Section detection (order matters for specificity) ──
+
+        # TENDENCIAS
+        if clean_upper_no_num == "TENDENCIAS" or clean_upper == "TENDENCIAS":
+            if current_section:
+                sections[current_section] = flush_buffer()
+            current_section = "tendencias"
+        # SCORE SUMMARY
+        elif "SCORE SUMMARY" in clean_upper or "SCORE_SUMMARY" in clean_upper:
+            if current_section:
+                sections[current_section] = flush_buffer()
+            current_section = "score_summary"
+        # ANÁLISIS CUANTITATIVO (3.1)
+        elif "ANÁLISIS CUANTITATIVO" in clean_upper or "ANALISIS CUANTITATIVO" in clean_upper:
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "cuantitativo"
-        elif "ANÁLISIS CUALITATIVO" in upper:
+        # TABLA DE NO CONFORMIDADES (qualitative structured table)
+        elif "TABLA DE NO CONFORMIDADES" in clean_upper:
+            if current_section:
+                sections[current_section] = flush_buffer()
+            current_section = "nc_table"
+        # TABLA DE EVENTOS DE RIESGO (qualitative structured table)
+        elif "TABLA DE EVENTOS DE RIESGO" in clean_upper:
+            if current_section:
+                sections[current_section] = flush_buffer()
+            current_section = "er_table"
+        # ANÁLISIS CUALITATIVO (3.2) — old or new format
+        elif "ANÁLISIS CUALITATIVO" in clean_upper or "ANALISIS CUALITATIVO" in clean_upper:
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "cualitativo"
-        elif "ANÁLISIS DE NO CONFORMIDADES" in upper and "ANÁLISIS DE NO CONFORMIDADES" == upper.replace("**", "").strip():
-            # Only match standalone section header, not inline text
+        # ANÁLISIS DE NO CONFORMIDADES — standalone section header (section 3)
+        elif ("ANÁLISIS DE NO CONFORMIDADES" in clean_upper or "ANALISIS DE NO CONFORMIDADES" in clean_upper) and \
+             clean_upper_no_num in ("ANÁLISIS DE NO CONFORMIDADES", "ANALISIS DE NO CONFORMIDADES"):
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "no_conformidades"
-        elif "ANÁLISIS DE EVENTOS DE RIESGO" in upper:
+        # ANÁLISIS DE EVENTOS DE RIESGO (old format fallback)
+        elif "ANÁLISIS DE EVENTOS DE RIESGO" in clean_upper or "ANALISIS DE EVENTOS DE RIESGO" in clean_upper:
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "eventos_riesgo"
-        elif "RESUMEN EJECUTIVO" in upper:
+        # SÍNTESIS
+        elif clean_upper_no_num in ("SÍNTESIS", "SINTESIS"):
+            if current_section:
+                sections[current_section] = flush_buffer()
+            current_section = "sintesis"
+        # CONCLUSIONES Y ACCIONES REQUERIDAS (section 4)
+        elif "CONCLUSIONES" in clean_upper and "ACCIONES" in clean_upper:
+            if current_section:
+                sections[current_section] = flush_buffer()
+            current_section = "conclusiones"
+        # RESUMEN EJECUTIVO (section 1)
+        elif "RESUMEN EJECUTIVO" in clean_upper:
             skip_header = False
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "resumen_ejecutivo"
-        elif "CUADRO DE CUMPLIMIENTO" in upper or "REPORTE DE CUMPLIMIENTO" in upper:
+        # CUADRO DE CUMPLIMIENTO / REPORTE DE CUMPLIMIENTO (section 2)
+        elif "CUADRO DE CUMPLIMIENTO" in clean_upper or "REPORTE DE CUMPLIMIENTO" in clean_upper:
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "cumplimiento"
-        elif "COMENTARIO DE SEGUIMIENTO" in upper:
+        # COMENTARIO DE SEGUIMIENTO
+        elif "COMENTARIO DE SEGUIMIENTO" in clean_upper:
             if current_section:
                 sections[current_section] = flush_buffer()
             current_section = "seguimiento"
