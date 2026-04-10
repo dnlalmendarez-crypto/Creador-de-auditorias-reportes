@@ -376,12 +376,10 @@ def add_compliance_table(doc: Document, rows_data: list):
 def add_quantitative_table(doc: Document, citas: list):
     """
     Tabla de análisis cuantitativo.
-    Col widths originales: [1800, 4500, 1700, 1360]  total=9360
+    Formato: 4 columnas → ID CITA | DIAGNÓSTICO | NOTA | SÍNTESIS DE HALLAZGOS.
     """
-    COL_W = [1400, 3600, 1200, 1400, 1360]
-    HEADERS = ["ID Cita", "Diagnóstico (CIE-11)", "Nota", "NC", "ER"]
-    total_nc = sum(c.get("nc", 0) for c in citas)
-    total_er = sum(c.get("er", 0) for c in citas)
+    COL_W = [1300, 2600, 900, 4560]
+    HEADERS = ["ID Cita", "Diagnóstico (CIE-11)", "Nota", "Síntesis de Hallazgos"]
     all_rows = [{"type": "header", "cols": HEADERS}]
     for c in citas:
         all_rows.append({
@@ -390,11 +388,9 @@ def add_quantitative_table(doc: Document, citas: list):
                 str(c.get("num_cita", "")),
                 c.get("diagnostico", ""),
                 str(c.get("nota", "")),
-                str(c.get("nc", "")),
-                str(c.get("er", "")),
+                str(c.get("sintesis", "")),
             ]
         })
-    all_rows.append({"type": "total", "cols": ["TOTAL", "", "", str(total_nc), str(total_er)]})
     num_cols = len(COL_W)
     table = doc.add_table(rows=len(all_rows), cols=num_cols)
     _set_col_width(table, COL_W)
@@ -405,16 +401,15 @@ def add_quantitative_table(doc: Document, citas: list):
         cols  = row_info["cols"]
         if rtype == "header":
             fill = DARK_BLUE; text_color = "FFFFFF"; bold = True; fsize = 9
-        elif rtype == "total":
-            fill = MED_BLUE;  text_color = "FFFFFF"; bold = True; fsize = 9
         else:
             fill = PALE_BLUE if data_row_index % 2 == 0 else WHITE
             data_row_index += 1
             text_color = "000000"; bold = False; fsize = 9
         for j, (cell, val) in enumerate(zip(row.cells, cols)):
             _style_cell(cell, fill, COL_W[j])
+            # Center ID and Nota, left-align diagnóstico and síntesis
             align = (WD_ALIGN_PARAGRAPH.CENTER
-                     if j in (0, 2, 3, 4) else WD_ALIGN_PARAGRAPH.LEFT)
+                     if j in (0, 2) else WD_ALIGN_PARAGRAPH.LEFT)
             _para_text(cell, val, bold=bold, font_size_pt=fsize,
                        color_hex=text_color, align=align)
     doc.add_paragraph()
@@ -616,8 +611,81 @@ def _add_component_compliance_table(doc: Document, table_text: str):
 
 
 def _add_tendencias_section(doc: Document, tendencias_text: str):
-    """Add the Tendencias table (Positiva/Sostenida/Negativa) to DOCX."""
+    """Add the Tendencias table to DOCX.
+
+    New format: 3 columns → TENDENCIA | [Periodo anterior] | [Periodo actual].
+    Prefers a markdown pipe table if provided; falls back to the legacy
+    "Positiva:/Sostenida:/Negativa:" list format.
+    """
     import re as _re
+
+    TREND_COLORS = {
+        "POSITIVA": "38761D",
+        "SOSTENIDA": "FF9900",
+        "NEGATIVA": "980000",
+    }
+
+    # Attempt structured pipe-table parse first
+    table_rows = _parse_pipe_table(tendencias_text)
+
+    header = None
+    data_rows = []
+    if table_rows and len(table_rows) >= 2:
+        header = table_rows[0]
+        data_rows = table_rows[1:]
+        # Only accept if it looks like our 3-column format
+        if len(header) < 3:
+            header = None
+            data_rows = []
+
+    if header:
+        num_cols = min(len(header), 3)
+        # Allocate widths: first column narrower, rest share remainder
+        COL_W = [1800, 3780, 3780][:num_cols]
+        while len(COL_W) < num_cols:
+            COL_W.append(2000)
+
+        table = doc.add_table(rows=1 + len(data_rows), cols=num_cols)
+        _set_col_width(table, COL_W)
+
+        # Header row
+        for j in range(num_cols):
+            cell = table.rows[0].cells[j]
+            _style_cell(cell, DARK_BLUE, COL_W[j])
+            label = header[j] if j < len(header) else ""
+            _para_text(cell, label, bold=True, font_size_pt=9,
+                       color_hex="FFFFFF", align=WD_ALIGN_PARAGRAPH.CENTER)
+
+        # Data rows — color the trend label cell by its type
+        for r, row_data in enumerate(data_rows):
+            row = table.rows[1 + r]
+            trend_label = row_data[0].strip() if row_data else ""
+            trend_upper = trend_label.upper()
+            trend_color = None
+            for key, color in TREND_COLORS.items():
+                if key in trend_upper:
+                    trend_color = color
+                    break
+
+            for j in range(num_cols):
+                cell = row.cells[j]
+                val = row_data[j] if j < len(row_data) else ""
+                if j == 0 and trend_color:
+                    _style_cell(cell, trend_color, COL_W[j])
+                    _para_text(cell, val, bold=True, font_size_pt=9,
+                               color_hex="FFFFFF",
+                               align=WD_ALIGN_PARAGRAPH.CENTER)
+                else:
+                    fill = PALE_BLUE if r % 2 == 0 else WHITE
+                    _style_cell(cell, fill, COL_W[j])
+                    _para_text(cell, val, bold=False, font_size_pt=8,
+                               color_hex="000000",
+                               align=WD_ALIGN_PARAGRAPH.LEFT)
+
+        doc.add_paragraph()
+        return
+
+    # ── Fallback: legacy list format (Positiva:/Sostenida:/Negativa:) ──
     positiva = []
     sostenida = []
     negativa = []
@@ -653,7 +721,6 @@ def _add_tendencias_section(doc: Document, tendencias_text: str):
     table = doc.add_table(rows=1 + max_rows, cols=3)
     _set_col_width(table, COL_W)
 
-    # Header row
     headers = [("POSITIVA", "38761D"), ("SOSTENIDA", "FF9900"), ("NEGATIVA", "980000")]
     for j, (label, color) in enumerate(headers):
         cell = table.rows[0].cells[j]
@@ -661,7 +728,6 @@ def _add_tendencias_section(doc: Document, tendencias_text: str):
         _para_text(cell, label, bold=True, font_size_pt=9,
                    color_hex="FFFFFF", align=WD_ALIGN_PARAGRAPH.CENTER)
 
-    # Data rows
     for r in range(max_rows):
         row = table.rows[1 + r]
         for j, items in enumerate([positiva, sostenida, negativa]):

@@ -74,9 +74,18 @@ CUMPLIMIENTO POR COMPONENTES
 
 TENDENCIAS
 
-Positiva: [Criterio1, Criterio2, ...]
-Sostenida: [Criterio1, Criterio2, ...]
-Negativa: [Criterio1, Criterio2, ...]
+| TENDENCIA | [Fecha período anterior] | [Fecha período actual] |
+|---|---|---|
+| Positiva | [Criterio1 (XX%), Criterio2 (XX%), ...] | [Criterio1 (XX%), Criterio2 (XX%), ...] |
+| Sostenida | [Criterio1 (XX%), Criterio2 (XX%), ...] | [Criterio1 (XX%), Criterio2 (XX%), ...] |
+| Negativa | [Criterio1 (XX%), Criterio2 (XX%), ...] | [Criterio1 (XX%), Criterio2 (XX%), ...] |
+
+Reglas de la tabla TENDENCIAS:
+- La primera columna contiene ÚNICAMENTE el tipo de tendencia (Positiva / Sostenida / Negativa), sin explicación ni texto adicional.
+- La segunda columna corresponde al período ANTERIOR evaluado; usa la fecha real de ese período como encabezado (ej.: "01-15 Febrero 2026").
+- La tercera columna corresponde al período ACTUAL auditado; usa la fecha real de ese período como encabezado.
+- En las filas, lista los criterios afectados con su porcentaje obtenido en ese período, asociándolos claramente al tipo de tendencia de la fila.
+- Si una celda no aplica, coloca "—".
 
 (NOTA: Si solo hay un período auditado, OMITE completamente la sección TENDENCIAS. No escribas "No aplica", simplemente no incluyas esta sección.)
 
@@ -145,13 +154,14 @@ Tendencia sostenida: (criterios sin variación entre periodos — énfasis espec
 
 3.1 ANÁLISIS CUANTITATIVO
 
-| ID CITA | DIAGNÓSTICO (CIE-11) | NOTA | NC | ER |
-|---|---|---|---|---|
-| [ID consulta] | [Código CIE] - [Descripción] | [Nota/calificación de la cita] | [N] | [N] |
-| ... | ... | ... | ... | ... |
-| **TOTAL** | | | **[X]** | **[Y]** |
+| ID CITA | DIAGNÓSTICO (CIE-11) | NOTA | SÍNTESIS DE HALLAZGOS |
+|---|---|---|---|
+| [ID consulta] | [Código CIE] - [Descripción] | [Nota/calificación de la cita] | [Síntesis de hallazgos encontrados en esa cita, máximo 3 líneas] |
+| ... | ... | ... | ... |
 
 La columna Nota corresponde a la calificación registrada para cada cita en la base de datos. Transcríbela de forma exacta.
+
+La columna SÍNTESIS DE HALLAZGOS debe resumir en máximo 3 líneas todos los hallazgos (no conformidades y eventos de riesgo) encontrados en esa consulta. Menciona los criterios y tipificaciones afectados de forma concisa. Si la cita no tiene hallazgos, coloca "Sin hallazgos".
 
 3.2 ANÁLISIS CUALITATIVO POR COMPONENTE
 
@@ -161,14 +171,14 @@ TABLA DE NO CONFORMIDADES
 
 | COMPONENTE | CRITERIO | NC | TIPIFICACIÓN | IMPACTO EN LA ATENCIÓN |
 |---|---|---|---|---|
-| [COMPONENTE] | [Criterio afectado] | [N] | [Texto exacto del diccionario] | [Impacto clínico sintetizado, max 2 líneas] |
+| [COMPONENTE] | [Criterio afectado] | [N] | [Texto exacto del diccionario] | [Impacto clínico sintetizado, máximo 2 líneas] (IDs: [ID1], [ID2], ...) |
 | ... | ... | ... | ... | ... |
 
 TABLA DE EVENTOS DE RIESGO
 
 | COMPONENTE | CRITERIO | ER | TIPIFICACIÓN | IMPACTO EN LA ATENCIÓN |
 |---|---|---|---|---|
-| [COMPONENTE] | [Criterio afectado] | [N] | [Texto exacto del diccionario] | [Impacto clínico sintetizado, max 2 líneas] |
+| [COMPONENTE] | [Criterio afectado] | [N] | [Texto exacto del diccionario] | [Impacto clínico sintetizado, máximo 2 líneas] (IDs: [ID1], [ID2], ...) |
 | ... | ... | ... | ... | ... |
 
 Reglas de construcción de tablas cualitativas:
@@ -177,8 +187,8 @@ Reglas de construcción de tablas cualitativas:
 - La columna COMPONENTE se rellena solo en la primera fila del grupo; las filas siguientes del mismo componente quedan en blanco.
 - La columna NC / ER muestra el conteo de ese hallazgo específico.
 - La columna TIPIFICACIÓN contiene el texto exacto del documento de tipificaciones de uso común, sin parafrasear.
-- La columna IMPACTO EN LA ATENCIÓN es una frase concisa (máximo 2 líneas) con la consecuencia clínica o documental del hallazgo.
-- No se incluyen los hallazgos detallados por ID de cita en esta tabla. Esos se trasladan a la tabla cuantitativa de la sección 3.1.
+- La columna IMPACTO EN LA ATENCIÓN es una frase concisa (máximo 2 líneas) con la consecuencia clínica o documental del hallazgo, SEGUIDA OBLIGATORIAMENTE de los IDs de las citas donde se encontró esa tipificación, entre paréntesis al final, con el formato: `(IDs: 12345678, 87654321)`.
+- Los IDs citados en el paréntesis de IMPACTO deben coincidir exactamente con los IDs de la tabla cuantitativa de la sección 3.1 que presenten esa tipificación.
 
 SÍNTESIS
 

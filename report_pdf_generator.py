@@ -691,7 +691,11 @@ def _compliance_table_to_html(text: str) -> str:
 
 
 def _quantitative_table_to_html(text: str) -> str:
-    """Convert markdown quantitative table to HTML with total-row styling."""
+    """Convert markdown quantitative table to HTML.
+
+    New format: 4 columns → ID CITA | DIAGNÓSTICO | NOTA | SÍNTESIS DE HALLAZGOS.
+    Preserves empty cells by trimming only outer pipes.
+    """
     lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
     table_lines = [l for l in lines if "|" in l and "---" not in l]
     if not table_lines:
@@ -699,8 +703,12 @@ def _quantitative_table_to_html(text: str) -> str:
 
     rows = []
     for line in table_lines:
-        cells = [c.strip() for c in line.split("|") if c.strip()]
-        rows.append(cells)
+        parts = line.split("|")
+        if parts and not parts[0].strip():
+            parts = parts[1:]
+        if parts and not parts[-1].strip():
+            parts = parts[:-1]
+        rows.append([c.strip() for c in parts])
 
     if not rows:
         return ""
@@ -712,9 +720,13 @@ def _quantitative_table_to_html(text: str) -> str:
     html.append("</tr></thead><tbody>")
 
     for row in rows[1:]:
-        is_total = any("TOTAL" in _strip_markdown(c).upper() for c in row)
-        tr_class = ' class="total-row"' if is_total else ""
-        html.append(f"<tr{tr_class}>")
+        if not row:
+            continue
+        is_total = row and "TOTAL" in _strip_markdown(row[0]).upper()
+        if is_total:
+            # Legacy total rows no longer apply to new format; skip them
+            continue
+        html.append("<tr>")
         for cell in row:
             clean = _strip_markdown(cell)
             html.append(f"<td>{_esc(clean)}</td>")
@@ -764,7 +776,60 @@ def _pareto_table_to_html(text: str) -> str:
 # ─── INDIVIDUAL REPORT ───────────────────────────────────────────────────────
 
 def _tendencias_to_html(text: str) -> str:
-    """Convert TENDENCIAS section to a 3-column table."""
+    """Convert TENDENCIAS section to an HTML table.
+
+    New format: 3 columns → TENDENCIA | [Periodo anterior] | [Periodo actual].
+    Falls back to legacy list layout (Positiva/Sostenida/Negativa columns).
+    """
+    # Attempt pipe-table parse first
+    lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+    table_lines = [l for l in lines if "|" in l and "---" not in l]
+    rows = []
+    for line in table_lines:
+        parts = line.split("|")
+        if parts and not parts[0].strip():
+            parts = parts[1:]
+        if parts and not parts[-1].strip():
+            parts = parts[:-1]
+        rows.append([_strip_markdown(c.strip()) for c in parts])
+
+    trend_classes = {
+        "POSITIVA": "th-positiva",
+        "SOSTENIDA": "th-sostenida",
+        "NEGATIVA": "th-negativa",
+    }
+
+    if rows and len(rows) >= 2 and len(rows[0]) >= 3:
+        header = rows[0]
+        data_rows = rows[1:]
+        html = ['<table class="tend-table">']
+        html.append("<thead><tr>")
+        # Header row: color the first header cell as "Tendencia" default
+        for j, cell in enumerate(header[:3]):
+            html.append(f'<th>{_esc(cell)}</th>')
+        html.append("</tr></thead><tbody>")
+        for row in data_rows:
+            html.append("<tr>")
+            for j in range(3):
+                val = row[j] if j < len(row) else ""
+                if j == 0:
+                    upper = val.upper()
+                    cls = ""
+                    for key, c in trend_classes.items():
+                        if key in upper:
+                            cls = c
+                            break
+                    if cls:
+                        html.append(f'<td class="{cls}">{_esc(val)}</td>')
+                    else:
+                        html.append(f"<td>{_esc(val)}</td>")
+                else:
+                    html.append(f"<td>{_esc(val)}</td>")
+            html.append("</tr>")
+        html.append("</tbody></table>")
+        return "\n".join(html)
+
+    # ── Legacy fallback: Positiva:/Sostenida:/Negativa: list ──
     positiva = []
     sostenida = []
     negativa = []
@@ -776,7 +841,6 @@ def _tendencias_to_html(text: str) -> str:
         upper = stripped.upper()
         if "POSITIVA" in upper:
             current = positiva
-            # Check if there is content after the label on same line
             after = re.sub(r".*positiva\s*:?\s*", "", stripped, flags=re.IGNORECASE).strip()
             if after and after != "-":
                 positiva.append(after)
@@ -944,24 +1008,63 @@ def generate_report_html(
     """Generate individual doctor audit report as HTML string."""
     informe_num = _build_informe_number(doctor_code, specialty, period)
 
-    # Count totals for info table from cuantitativo section
+    # Count totals for info table.
+    # Total consultas: rows in the cuantitativo table (new 4-col format: ID | DIAG | NOTA | SÍNTESIS).
+    # NC / ER: sum of the counter column in the nc_table / er_table (sección 3.2).
     total_consultas = "-"
     total_nc = "-"
     total_er = "-"
+
     if report_sections.get("cuantitativo"):
         quant_lines = [l.strip() for l in report_sections["cuantitativo"].split("\n")
                        if "|" in l and "---" not in l]
-        for ql in reversed(quant_lines):
-            cells = [c.strip() for c in ql.split("|") if c.strip()]
-            if cells and "TOTAL" in cells[0].upper():
-                if len(cells) >= 3:
-                    total_nc = _strip_markdown(cells[-2])
-                    total_er = _strip_markdown(cells[-1])
-                break
-        # Count data rows (excluding header and total) as total consultas
-        data_rows = [l for l in quant_lines[1:] if "TOTAL" not in l.upper()]
+        data_rows = []
+        for ql in quant_lines[1:]:  # skip header
+            parts = ql.split("|")
+            if parts and not parts[0].strip():
+                parts = parts[1:]
+            if parts and not parts[-1].strip():
+                parts = parts[:-1]
+            cells = [c.strip() for c in parts]
+            if not cells:
+                continue
+            if "TOTAL" in _strip_markdown(cells[0]).upper():
+                continue
+            data_rows.append(cells)
         if data_rows:
             total_consultas = str(len(data_rows))
+
+    def _sum_count_col(text: str) -> int:
+        if not text:
+            return 0
+        total = 0
+        tlines = [l.strip() for l in text.split("\n")
+                  if "|" in l and "---" not in l]
+        for idx, line in enumerate(tlines):
+            if idx == 0:
+                continue  # skip header
+            parts = line.split("|")
+            if parts and not parts[0].strip():
+                parts = parts[1:]
+            if parts and not parts[-1].strip():
+                parts = parts[:-1]
+            cells = [_strip_markdown(c.strip()) for c in parts]
+            # Count column is index 2 (COMPONENTE | CRITERIO | NC/ER | ...)
+            if len(cells) >= 3:
+                n = re.sub(r"[^\d]", "", cells[2])
+                if n:
+                    try:
+                        total += int(n)
+                    except ValueError:
+                        pass
+        return total
+
+    nc_sum = _sum_count_col(report_sections.get("nc_table", ""))
+    er_sum = _sum_count_col(report_sections.get("er_table", ""))
+    if nc_sum:
+        total_nc = str(nc_sum)
+    if er_sum:
+        total_er = str(er_sum)
 
     parts = [f"""<!DOCTYPE html>
 <html lang="es">

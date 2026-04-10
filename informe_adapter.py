@@ -138,7 +138,10 @@ def parse_citas(cuantitativo_text: str) -> list:
     """
     Convierte la tabla cuantitativa en markdown a la lista de dicts
     que espera add_quantitative_table():
-      [{"num_cita": "...", "diagnostico": "...", "nc": N, "er": N}, ...]
+      [{"num_cita": "...", "diagnostico": "...", "nota": "...", "sintesis": "..."}, ...]
+
+    Soporta el formato actual (4 columnas: ID | DIAGNÓSTICO | NOTA | SÍNTESIS)
+    y los formatos legados (5 cols con NC/ER y 4 cols legacy sin NOTA).
     """
     lines = [l.strip() for l in cuantitativo_text.strip().split("\n") if l.strip()]
     table_lines = [l for l in lines if "|" in l and "---" not in l]
@@ -156,40 +159,53 @@ def parse_citas(cuantitativo_text: str) -> list:
         cells = [_strip_md(c.strip()) for c in parts]
         rows_raw.append(cells)
 
-    # Skip header row (first row), parse data rows, skip TOTAL row
+    if not rows_raw:
+        return []
+
+    # Detect format from the header row
+    header = [c.upper() for c in rows_raw[0]]
+    header_joined = " | ".join(header)
+    has_sintesis = "SÍNTESIS" in header_joined or "SINTESIS" in header_joined
+    has_nc_er = " NC" in f" {header_joined}" and " ER" in f" {header_joined}"
+
     citas = []
     for row in rows_raw[1:]:
-        if not row or len(row) < 4:
+        if not row or len(row) < 3:
             continue
         # Skip total row
-        if row[0].upper() == "TOTAL":
+        if row[0].upper().startswith("TOTAL"):
             continue
-        # Table format: ID CITA | DIAGNÓSTICO | NOTA | NC | ER (5 cols)
-        # or legacy:    ID CITA | DIAGNÓSTICO | NC | ER (4 cols)
-        if len(row) >= 5:
-            # New format with NOTA column
+
+        num_cita = row[0].strip()
+        diagnostico = row[1].strip() if len(row) > 1 else ""
+        nota = ""
+        sintesis = ""
+
+        if has_sintesis and len(row) >= 4:
+            # New format: ID | DIAGNÓSTICO | NOTA | SÍNTESIS
+            nota = row[2].strip()
+            sintesis = row[3].strip()
+        elif has_nc_er and len(row) >= 5:
+            # Legacy: ID | DIAGNÓSTICO | NOTA | NC | ER
             nota = row[2].strip()
             nc_str = row[3].strip()
             er_str = row[4].strip()
+            nc_val = re.sub(r"[^\d]", "", nc_str) or "0"
+            er_val = re.sub(r"[^\d]", "", er_str) or "0"
+            sintesis = f"NC: {nc_val} | ER: {er_val}"
+        elif len(row) >= 4:
+            # Best-effort: treat as ID | DIAG | NOTA | SÍNTESIS
+            nota = row[2].strip()
+            sintesis = row[3].strip()
         else:
-            # Legacy format without NOTA
-            nota = ""
-            nc_str = row[2].strip() if len(row) > 2 else "0"
-            er_str = row[3].strip() if len(row) > 3 else "0"
-        try:
-            nc = int(re.sub(r"[^\d]", "", nc_str)) if nc_str else 0
-        except (ValueError, IndexError):
-            nc = 0
-        try:
-            er = int(re.sub(r"[^\d]", "", er_str)) if er_str else 0
-        except (ValueError, IndexError):
-            er = 0
+            # ID | DIAG | SÍNTESIS (3 cols)
+            sintesis = row[2].strip() if len(row) > 2 else ""
+
         citas.append({
-            "num_cita": row[0].strip(),
-            "diagnostico": row[1].strip(),
+            "num_cita": num_cita,
+            "diagnostico": diagnostico,
             "nota": nota,
-            "nc": nc,
-            "er": er,
+            "sintesis": sintesis,
         })
 
     return citas
@@ -220,16 +236,63 @@ def parse_hallazgos_from_resumen(resumen_text: str) -> dict:
     return hallazgos
 
 
-def parse_hallazgos_from_citas(citas: list) -> dict:
+def parse_hallazgos_from_tables(nc_table_text: str, er_table_text: str) -> dict:
     """
-    Alternativa: calcula hallazgos totales desde la tabla cuantitativa.
-    Agrupa NC y ER totales (sin desglose por componente).
+    Alternativa: calcula hallazgos por componente desde las tablas
+    cualitativas estructuradas de NC y ER (sección 3.2).
+
+    Cada tabla tiene el formato:
+      | COMPONENTE | CRITERIO | NC/ER | TIPIFICACIÓN | IMPACTO |
+    donde COMPONENTE puede estar vacío en filas de continuación.
+
+    Devuelve { "COMPONENTE": {"nc": N, "er": N}, ... }.
     """
-    total_nc = sum(c.get("nc", 0) for c in citas)
-    total_er = sum(c.get("er", 0) for c in citas)
-    if total_nc > 0 or total_er > 0:
-        return {"TOTAL": {"nc": total_nc, "er": total_er}}
-    return {}
+    def _tally(text: str, key: str) -> dict:
+        out: dict = {}
+        if not text:
+            return out
+        lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+        table_lines = [l for l in lines if "|" in l and "---" not in l]
+        if len(table_lines) < 2:
+            return out
+
+        rows_raw = []
+        for line in table_lines:
+            parts = line.split("|")
+            if parts and not parts[0].strip():
+                parts = parts[1:]
+            if parts and not parts[-1].strip():
+                parts = parts[:-1]
+            rows_raw.append([_strip_md(c.strip()) for c in parts])
+
+        last_comp = ""
+        for row in rows_raw[1:]:
+            if len(row) < 3:
+                continue
+            comp = row[0].strip() or last_comp
+            if not comp:
+                continue
+            last_comp = comp
+            count_str = re.sub(r"[^\d]", "", row[2])
+            try:
+                count = int(count_str) if count_str else 0
+            except ValueError:
+                count = 0
+            comp_key = comp.upper()
+            if comp_key not in out:
+                out[comp_key] = {"nc": 0, "er": 0}
+            out[comp_key][key] += count
+        return out
+
+    nc_by_comp = _tally(nc_table_text, "nc")
+    er_by_comp = _tally(er_table_text, "er")
+
+    hallazgos: dict = {}
+    for comp, v in nc_by_comp.items():
+        hallazgos.setdefault(comp, {"nc": 0, "er": 0})["nc"] += v["nc"]
+    for comp, v in er_by_comp.items():
+        hallazgos.setdefault(comp, {"nc": 0, "er": 0})["er"] += v["er"]
+    return hallazgos
 
 
 # ─── FUNCIÓN PRINCIPAL DE CONVERSIÓN ────────────────────────────────────────
@@ -261,12 +324,16 @@ def build_informe_data(
     if sections.get("cuantitativo"):
         citas = parse_citas(sections["cuantitativo"])
 
-    # Parsear hallazgos del resumen
+    # Parsear hallazgos del resumen; si no hay, derivarlos de las tablas
+    # cualitativas estructuradas (NC/ER) por componente.
     hallazgos = {}
     if sections.get("resumen_ejecutivo"):
         hallazgos = parse_hallazgos_from_resumen(sections["resumen_ejecutivo"])
-    if not hallazgos and citas:
-        hallazgos = parse_hallazgos_from_citas(citas)
+    if not hallazgos:
+        hallazgos = parse_hallazgos_from_tables(
+            sections.get("nc_table", ""),
+            sections.get("er_table", ""),
+        )
 
     # Limpiar textos de markdown
     resumen = _strip_md(sections.get("resumen_ejecutivo", ""))
