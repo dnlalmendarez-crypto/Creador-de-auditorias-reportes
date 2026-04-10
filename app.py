@@ -104,12 +104,45 @@ with st.sidebar:
         help="Ingresa tu API Key de Anthropic Claude. En Streamlit Cloud se lee automáticamente de Secrets.",
     )
 
+    # Model selector with cost-aware defaults.
+    # Sonnet 4.6 + extended thinking + prompt caching delivers near-Opus
+    # quality at roughly half the cost per audit.
     model_options = {
-        "Claude Opus 4.6 (Más potente)": "claude-opus-4-6",
-        "Claude Sonnet 4.6 (Balanceado)": "claude-sonnet-4-6",
+        "Claude Sonnet 4.6 (recomendado)": "claude-sonnet-4-6",
+        "Claude Opus 4.6 (premium)": "claude-opus-4-6",
+        "Claude Haiku 4.5 (rápido/económico)": "claude-haiku-4-5-20251001",
     }
-    selected_model_label = st.selectbox("Modelo Claude", list(model_options.keys()))
+    selected_model_label = st.selectbox(
+        "Modelo de IA",
+        list(model_options.keys()),
+        index=0,
+        help=(
+            "Sonnet 4.6 (recomendado): balance calidad/costo, usa razonamiento "
+            "extendido y caché del prompt. Opus 4.6: máxima calidad en casos "
+            "complejos. Haiku 4.5: el más rápido y económico para auditorías "
+            "simples."
+        ),
+    )
     selected_model = model_options[selected_model_label]
+
+    # Extended thinking toggle — only shown for models that support it.
+    # Disable it to reduce cost further at the expense of some precision
+    # in cross-reference tasks (ID ↔ tipificación).
+    supports_thinking = ca.AVAILABLE_MODELS.get(selected_model, {}).get(
+        "supports_thinking", False
+    )
+    if supports_thinking:
+        thinking_enabled = st.checkbox(
+            "Razonamiento extendido (recomendado)",
+            value=True,
+            help=(
+                "Activa el 'extended thinking' del modelo para mejorar "
+                "precisión en el cruce de IDs con tipificaciones. "
+                "Desactívalo para reducir costo en auditorías simples."
+            ),
+        )
+    else:
+        thinking_enabled = False
 
     st.markdown("---")
 
@@ -658,6 +691,7 @@ with tab1:
                         reporte_global_table=reporte_global_text,
                         api_key=api_key,
                         model=selected_model,
+                        thinking_enabled=thinking_enabled,
                         stream_callback=stream_cb,
                     )
                     progress.progress(80)
@@ -969,6 +1003,7 @@ with tab4:
                 specialty=gen_specialty,
                 api_key=api_key,
                 model=selected_model,
+                thinking_enabled=thinking_enabled,
                 stream_callback=gen_stream_cb,
             )
             progress_gen.progress(60)

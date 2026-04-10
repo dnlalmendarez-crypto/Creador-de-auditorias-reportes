@@ -8,6 +8,31 @@ import os
 from typing import Optional
 
 
+# ─── AVAILABLE MODELS ───────────────────────────────────────────────────────
+# Ordered from cheapest → most expensive. Default is Sonnet 4.6 which,
+# combined with extended thinking + prompt caching, delivers near-Opus
+# quality at ~2x lower cost per audit.
+AVAILABLE_MODELS = {
+    "claude-sonnet-4-6": {
+        "label": "Claude Sonnet 4.6 (estándar — recomendado)",
+        "description": "Balance calidad/costo. Usa extended thinking + prompt caching. ~$0.08/auditoría.",
+        "supports_thinking": True,
+    },
+    "claude-opus-4-6": {
+        "label": "Claude Opus 4.6 (premium)",
+        "description": "Máxima calidad en razonamiento y prosa clínica. ~$0.18/auditoría.",
+        "supports_thinking": True,
+    },
+    "claude-haiku-4-5-20251001": {
+        "label": "Claude Haiku 4.5 (rápido/económico)",
+        "description": "El más rápido y económico. Para auditorías simples. ~$0.02/auditoría.",
+        "supports_thinking": False,
+    },
+}
+
+DEFAULT_MODEL = "claude-sonnet-4-6"
+
+
 SYSTEM_PROMPT = """Eres un experto en auditoría médica de calidad. Tu tarea es analizar datos de auditorías médicas y generar reportes estructurados siguiendo un formato ESTRICTO e idéntico al ejemplo proporcionado.
 
 REGLAS FUNDAMENTALES:
@@ -300,6 +325,64 @@ GENERA EL REPORTE AHORA:
     return prompt
 
 
+def _build_request_params(
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    thinking_enabled: bool = False,
+    thinking_budget: int = 4000,
+    max_response_tokens: int = 16384,
+) -> dict:
+    """Build the request params for a messages.create / messages.stream call.
+
+    Applies prompt caching on the system prompt (ephemeral cache, 90% discount
+    on subsequent calls within the cache window) and optionally enables
+    extended thinking for reasoning-capable models.
+    """
+    # System prompt as a list of blocks so we can attach cache_control
+    system_blocks = [{
+        "type": "text",
+        "text": system_prompt,
+        "cache_control": {"type": "ephemeral"},
+    }]
+
+    params: dict = {
+        "model": model,
+        "max_tokens": max_response_tokens,
+        "system": system_blocks,
+        "messages": [{"role": "user", "content": user_prompt}],
+    }
+
+    if thinking_enabled:
+        # The API requires max_tokens > budget_tokens; expand the total cap
+        params["thinking"] = {
+            "type": "enabled",
+            "budget_tokens": thinking_budget,
+        }
+        params["max_tokens"] = max_response_tokens + thinking_budget
+        # Extended thinking requires temperature = 1 (default)
+        params.pop("temperature", None)
+
+    return params
+
+
+def _extract_text_from_response(response) -> str:
+    """Return the concatenated text from non-thinking content blocks."""
+    if not response.content:
+        raise ValueError("Claude returned an empty response")
+    text_parts = []
+    for block in response.content:
+        # SDK returns typed blocks; thinking blocks use .type == "thinking"
+        btype = getattr(block, "type", None)
+        if btype == "text":
+            text_parts.append(getattr(block, "text", ""))
+    if not text_parts:
+        # Fallback: first block text (legacy behaviour)
+        first = response.content[0]
+        return getattr(first, "text", "") or ""
+    return "".join(text_parts)
+
+
 def analyze_with_claude(
     doctor_name: str,
     doctor_code: str,
@@ -311,16 +394,25 @@ def analyze_with_claude(
     previous_period_data: str = "",
     reporte_global_table: str = "",
     api_key: str | None = None,
-    model: str = "claude-opus-4-6",
+    model: str = "claude-sonnet-4-6",
+    thinking_enabled: bool = True,
+    thinking_budget: int = 4000,
     stream_callback=None,
 ) -> str:
     """
     Send data to Claude API and get the formatted audit report.
 
     Args:
-        stream_callback: Optional callable(chunk: str) for streaming output
+        model: Claude model id. Defaults to Sonnet 4.6 (estándar). Use
+            `claude-opus-4-6` for premium mode.
+        thinking_enabled: If True, enables extended thinking (chain-of-thought
+            before the response) to close the quality gap with Opus. Adds some
+            cost but improves cross-reference accuracy.
+        thinking_budget: Token budget for the thinking phase (only used when
+            thinking_enabled=True).
+        stream_callback: Optional callable(chunk: str) for streaming text.
     Returns:
-        Full report text
+        Full report text (thinking blocks are discarded from the returned string).
     """
     key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
     if not key:
@@ -340,28 +432,27 @@ def analyze_with_claude(
         reporte_global_table=reporte_global_table,
     )
 
+    params = _build_request_params(
+        model=model,
+        system_prompt=SYSTEM_PROMPT,
+        user_prompt=prompt,
+        thinking_enabled=thinking_enabled,
+        thinking_budget=thinking_budget,
+        max_response_tokens=16384,
+    )
+
     if stream_callback:
         full_text = ""
-        with client.messages.stream(
-            model=model,
-            max_tokens=16384,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
+        with client.messages.stream(**params) as stream:
+            # text_stream yields only text deltas (thinking deltas are
+            # handled internally by the SDK and excluded from this iterator).
             for text_chunk in stream.text_stream:
                 full_text += text_chunk
                 stream_callback(text_chunk)
         return full_text
     else:
-        response = client.messages.create(
-            model=model,
-            max_tokens=16384,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        if not response.content:
-            raise ValueError("Claude returned an empty response")
-        return response.content[0].text
+        response = client.messages.create(**params)
+        return _extract_text_from_response(response)
 
 
 def parse_report_sections(report_text: str) -> dict:
@@ -592,7 +683,9 @@ def analyze_general_report(
     period: str,
     specialty: str,
     api_key: str | None = None,
-    model: str = "claude-opus-4-6",
+    model: str = "claude-sonnet-4-6",
+    thinking_enabled: bool = True,
+    thinking_budget: int = 4000,
     stream_callback=None,
 ) -> str:
     """Generate a Pareto-based general report for a specialty."""
@@ -633,25 +726,22 @@ def analyze_general_report(
 GENERA EL REPORTE DE PARETO AHORA:
 """
 
+    params = _build_request_params(
+        model=model,
+        system_prompt=PARETO_SYSTEM_PROMPT,
+        user_prompt=prompt,
+        thinking_enabled=thinking_enabled,
+        thinking_budget=thinking_budget,
+        max_response_tokens=16384,
+    )
+
     if stream_callback:
         full_text = ""
-        with client.messages.stream(
-            model=model,
-            max_tokens=16384,
-            system=PARETO_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
+        with client.messages.stream(**params) as stream:
             for text_chunk in stream.text_stream:
                 full_text += text_chunk
                 stream_callback(text_chunk)
         return full_text
     else:
-        response = client.messages.create(
-            model=model,
-            max_tokens=16384,
-            system=PARETO_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        if not response.content:
-            raise ValueError("Claude returned an empty response")
-        return response.content[0].text
+        response = client.messages.create(**params)
+        return _extract_text_from_response(response)
