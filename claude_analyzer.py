@@ -97,62 +97,43 @@ CUMPLIMIENTO POR COMPONENTES
 
 (NOTA: Los porcentajes de cumplimiento por componente se toman del Reporte Global si fue proporcionado. El % promedio es el promedio de los cuatro componentes. El puntaje promedio es % promedio / 20 redondeado a 2 decimales (escala de 5). Si no hay datos del Reporte Global, usa los promedios calculados de los criterios del cuadro de cumplimiento.)
 
-TENDENCIAS
-
-| TENDENCIA | [Fecha período anterior] | [Fecha período actual] |
-|---|---|---|
-| Positiva | [Criterio1 (XX%), Criterio2 (XX%), ...] | [Criterio1 (XX%), Criterio2 (XX%), ...] |
-| Sostenida | [Criterio1 (XX%), Criterio2 (XX%), ...] | [Criterio1 (XX%), Criterio2 (XX%), ...] |
-| Negativa | [Criterio1 (XX%), Criterio2 (XX%), ...] | [Criterio1 (XX%), Criterio2 (XX%), ...] |
-
-Reglas de la tabla TENDENCIAS:
-- La primera columna contiene ÚNICAMENTE el tipo de tendencia (Positiva / Sostenida / Negativa), sin explicación ni texto adicional.
-- La segunda columna corresponde al período ANTERIOR evaluado; usa la fecha real de ese período como encabezado (ej.: "01-15 Febrero 2026").
-- La tercera columna corresponde al período ACTUAL auditado; usa la fecha real de ese período como encabezado.
-- En las filas, lista los criterios afectados con su porcentaje obtenido en ese período, asociándolos claramente al tipo de tendencia de la fila.
-- Si una celda no aplica, coloca "—".
-
-(NOTA: Si solo hay un período auditado, OMITE completamente la sección TENDENCIAS. No escribas "No aplica", simplemente no incluyas esta sección.)
-
 Reglas de redacción del Resumen Ejecutivo:
 - Tono ejecutivo, urgente y profesional. Sin rodeos ni texto de relleno.
 - Los nombres de criterios afectados y sus porcentajes van siempre en **negrita** dentro del texto corrido.
 - Máximo media página en total para los cuatro campos.
-- No generar tablas dentro de los cuatro campos del Resumen Ejecutivo, solo la tabla de CUMPLIMIENTO POR COMPONENTES y la tabla de TENDENCIAS al final.
+- No generar tablas dentro de los cuatro campos del Resumen Ejecutivo, solo la tabla de CUMPLIMIENTO POR COMPONENTES al final.
 - No repetir información que ya aparece en el cuadro de cumplimiento de la sección 2.
 
 2. CUADRO DE CUMPLIMIENTO POR CRITERIO
 
-Nivel de cumplimiento por criterio evaluado, organizado por Criterio clínico. Los porcentajes se calculan sobre el total de citas auditadas.
+Nivel de cumplimiento por criterio evaluado, organizado por Criterio clínico. Los porcentajes se calculan sobre el total de citas auditadas. La última columna clasifica la variación entre el período anterior (si aplica) y el período actual auditado.
 
-| COMPONENTE | CRITERIO | [Período anterior] CUMPLIMIENTO | [Período actual] CUMPLIMIENTO |
-|---|---|---|---|
-| ANAMNESIS | Motivo de Consulta | XX% | XX% |
-| ANAMNESIS | Signos Vitales | XX% | XX% |
-| ANAMNESIS | Talla y Peso | XX% | XX% |
-| ANAMNESIS | Antecedentes | XX% | XX% |
-| ANAMNESIS | Alergias | XX% | XX% |
-| ANAMNESIS | Transcripción Clínica | XX% | XX% |
-| ANAMNESIS | Presente Enfermedad | XX% | XX% |
-| EXAMEN FÍSICO | Examen Físico | XX% | XX% |
-| DIAGNÓSTICO | Apreciación Diagnóstica | XX% | XX% |
-| DIAGNÓSTICO | Diagnóstico Principal | XX% | XX% |
-| DIAGNÓSTICO | Diagnóstico Secundario | XX% | XX% |
-| DIAGNÓSTICO | Problema Activo | XX% | XX% |
-| PRODUCTOS DE LA CONSULTA | Prescripción – Indicación | XX% | XX% |
-| PRODUCTOS DE LA CONSULTA | Prescripción – Dosis | XX% | XX% |
-| PRODUCTOS DE LA CONSULTA | Laboratorios | XX% | XX% |
-| PRODUCTOS DE LA CONSULTA | Imágenes | XX% | XX% |
-| PRODUCTOS DE LA CONSULTA | Seguridad al Contraste | XX% | XX% |
-| PRODUCTOS DE LA CONSULTA | Referencia Interna | XX% | XX% |
-| PRODUCTOS DE LA CONSULTA | Referencia Externa | XX% | XX% |
-| PRODUCTOS DE LA CONSULTA | Constancia Médica | XX% | XX% |
-| PRODUCTOS DE LA CONSULTA | Recomendaciones | XX% | XX% |
-| PRODUCTOS DE LA CONSULTA | Seguimiento | XX% | XX% |
+| COMPONENTE | CRITERIO | [Período anterior] CUMPLIMIENTO | [Período actual] CUMPLIMIENTO | TENDENCIA |
+|---|---|---|---|---|
+| ANAMNESIS | Motivo de Consulta | XX% | XX% | Positiva / Negativa / Mantenida |
+| ANAMNESIS | Signos Vitales | XX% | XX% | Positiva / Negativa / Mantenida |
+| ANAMNESIS | Talla y Peso | XX% | XX% | Positiva / Negativa / Mantenida |
+| ANAMNESIS | Antecedentes | XX% | XX% | Positiva / Negativa / Mantenida |
+| ANAMNESIS | Alergias | XX% | XX% | Positiva / Negativa / Mantenida |
+| ANAMNESIS | Transcripción Clínica | XX% | XX% | Positiva / Negativa / Mantenida |
+| ANAMNESIS | Presente Enfermedad | XX% | XX% | Positiva / Negativa / Mantenida |
+| EXAMEN FÍSICO | Examen Físico | XX% | XX% | Positiva / Negativa / Mantenida |
+| DIAGNÓSTICO | Apreciación Diagnóstica | XX% | XX% | Positiva / Negativa / Mantenida |
+| DIAGNÓSTICO | Diagnóstico Principal | XX% | XX% | Positiva / Negativa / Mantenida |
+| DIAGNÓSTICO | Diagnóstico Secundario | XX% | XX% | Positiva / Negativa / Mantenida |
+| DIAGNÓSTICO | Problema Activo | XX% | XX% | Positiva / Negativa / Mantenida |
+| PRODUCTOS DE LA CONSULTA | Prescripción – Indicación | XX% | XX% | Positiva / Negativa / Mantenida |
+| PRODUCTOS DE LA CONSULTA | Prescripción – Dosis | XX% | XX% | Positiva / Negativa / Mantenida |
+| PRODUCTOS DE LA CONSULTA | Laboratorios | XX% | XX% | Positiva / Negativa / Mantenida |
+| PRODUCTOS DE LA CONSULTA | Imágenes | XX% | XX% | Positiva / Negativa / Mantenida |
+| PRODUCTOS DE LA CONSULTA | Seguridad al Contraste | XX% | XX% | Positiva / Negativa / Mantenida |
+| PRODUCTOS DE LA CONSULTA | Referencia Interna | XX% | XX% | Positiva / Negativa / Mantenida |
+| PRODUCTOS DE LA CONSULTA | Referencia Externa | XX% | XX% | Positiva / Negativa / Mantenida |
+| PRODUCTOS DE LA CONSULTA | Constancia Médica | XX% | XX% | Positiva / Negativa / Mantenida |
+| PRODUCTOS DE LA CONSULTA | Recomendaciones | XX% | XX% | Positiva / Negativa / Mantenida |
+| PRODUCTOS DE LA CONSULTA | Seguimiento | XX% | XX% | Positiva / Negativa / Mantenida |
 
-Leyenda: Excelente (≥98%) | Muy Bueno (≥95% a <98%) | Aceptable (≥85% a <95%) | Op. de Mejora (<85%)
-
-Categorización por color obligatoria:
+Categorización por color obligatoria (aplica a las columnas de porcentaje):
 🟢 Verde → ≥98% — Excelente
 🟡 Amarillo → ≥95% a <98% — Muy Bueno
 🟠 Naranja → ≥85% a <95% — Aceptable
@@ -162,18 +143,29 @@ REGLAS del cuadro de cumplimiento:
 - SIEMPRE genera la tabla markdown con pipes (|) aunque solo haya un período. NUNCA omitas esta tabla.
 - Usa EXACTAMENTE los porcentajes del archivo de gráficas. NO los inventes.
 - Si un criterio no aplica, usa "-" en lugar de porcentaje.
-- Incluye TODOS los períodos disponibles en columnas separadas.
+- Incluye TODOS los períodos disponibles en columnas separadas. La columna TENDENCIA siempre va AL FINAL de la tabla, después de todas las columnas de período.
 - La columna COMPONENTE debe repetir el nombre del componente en cada fila que le pertenezca.
-- Si no se proporcionaron datos de cumplimiento, genera la tabla con los criterios estándar y usa "-" en todas las columnas de porcentaje.
+- Si no se proporcionaron datos de cumplimiento, genera la tabla con los criterios estándar y usa "-" en todas las columnas de porcentaje y en la columna TENDENCIA.
+- La columna TENDENCIA se determina comparando el último período cerrado con el período actual auditado:
+    * **Positiva**: el porcentaje del período actual es mayor que el del período anterior.
+    * **Negativa**: el porcentaje del período actual es menor que el del período anterior.
+    * **Mantenida**: el porcentaje del período actual es igual al del período anterior.
+    * Si solo hay un período auditado (primera auditoría del médico) o no aplica la comparación, usa "—" en la columna TENDENCIA.
+- NO incluyas una fila de leyenda al final de la tabla. La leyenda no debe aparecer.
 
 COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERIODOS
 (Solo si hay 2 o más periodos auditados)
 
-"Comentario de seguimiento y comparación de periodos ([Período anterior] vs [Período actual]):
-(Resumen de máximo 4 líneas comparando los criterios con impacto en la atención al paciente).
-Tendencia positiva: (únicamente los criterios con aumento en el porcentaje)
-Tendencia Negativa: (únicamente los criterios con disminución del porcentaje)
-Tendencia sostenida: (criterios sin variación entre periodos — énfasis especial en los que estén por debajo del 90%)"
+Redacta un párrafo de síntesis generalizada (máximo 6 líneas) que describa el comportamiento global del médico durante el período auditado en comparación con el período anterior. El párrafo debe cubrir de forma equilibrada los dos ejes:
+
+- **Impacto positivo**: qué aspectos o criterios mejoraron, dónde se consolidaron avances y en qué componentes el médico demostró fortaleza o crecimiento.
+- **Impacto negativo**: qué aspectos o criterios retrocedieron, dónde hay riesgo clínico o documental asociado a la disminución, y qué áreas requieren atención prioritaria.
+
+Reglas del comentario:
+- Debe ser una síntesis ejecutiva y generalizada, NO un listado exhaustivo de criterios.
+- Menciona los componentes y criterios más relevantes de ambos lados (positivo y negativo) en **negrita**.
+- Cierra con una frase corta que capture el balance global del período (ej.: "El médico mantiene un desempeño aceptable con oportunidades concretas de mejora en Anamnesis").
+- Si es la primera auditoría del médico (sin período previo), OMITE completamente esta sección.
 
 3. ANÁLISIS DE NO CONFORMIDADES
 

@@ -610,14 +610,33 @@ def _body_text_to_html(text: str) -> str:
     return "\n".join(html_parts)
 
 
+def _trend_color(val_str: str) -> tuple[str, str] | tuple[None, None]:
+    """Returns (bg, fg) for the TENDENCIA column based on the value."""
+    upper = val_str.upper().strip()
+    if "POSITIV" in upper:
+        return COLORS["green_bg"], COLORS["green_text"]
+    if "NEGATIV" in upper:
+        return COLORS["red_bg"], COLORS["red_text"]
+    if "MANTEN" in upper or "SOSTEN" in upper:
+        return COLORS["yellow_bg"], COLORS["yellow_text"]
+    return None, None
+
+
 def _compliance_table_to_html(text: str) -> str:
-    """Convert markdown compliance table to HTML with pastel color-coded cells."""
+    """Convert markdown compliance table to HTML with pastel color-coded cells.
+
+    Supports the new dynamic format:
+      | COMPONENTE | CRITERIO | [Período anterior] | [Período actual] | TENDENCIA |
+
+    The last column is always TENDENCIA and is colored accordingly. The
+    leyenda row is stripped if Claude includes it by mistake.
+    """
     lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
     table_lines = [
         l for l in lines
         if "|" in l
         and "---" not in l
-        and not l.lower().startswith("leyenda")
+        and not l.lower().lstrip("| ").startswith("leyenda")
         and "leyenda:" not in l.lower()
     ]
     if not table_lines:
@@ -625,40 +644,83 @@ def _compliance_table_to_html(text: str) -> str:
 
     rows = []
     for line in table_lines:
-        cells = [c.strip() for c in line.split("|") if c.strip()]
-        rows.append(cells)
+        parts = line.split("|")
+        if parts and not parts[0].strip():
+            parts = parts[1:]
+        if parts and not parts[-1].strip():
+            parts = parts[:-1]
+        cells = [c.strip() for c in parts]
+        if cells:
+            rows.append(cells)
 
     if not rows:
         return ""
+
+    header = rows[0]
+    num_cols = len(header)
+    tendencia_idx = num_cols - 1
+    has_tendencia = num_cols >= 3 and "TENDENCIA" in header[-1].upper()
+
+    # Normalize data rows: fill continuation rows (empty COMPONENTE) with the
+    # last seen component so grouping by rowspan works correctly.
+    data_rows = []
+    last_comp = ""
+    for row in rows[1:]:
+        if not row:
+            continue
+        if row[0].upper().startswith("LEYENDA") or row[0].upper().startswith("TOTAL"):
+            continue
+        row = list(row) + [""] * (num_cols - len(row))
+        row = row[:num_cols]
+        if row[0].strip():
+            last_comp = row[0]
+        else:
+            row[0] = last_comp
+        data_rows.append(row)
 
     html = ['<table class="data-table">']
 
     # Header
     html.append("<thead><tr>")
-    for cell in rows[0]:
+    for cell in header:
         html.append(f"<th>{_esc(cell)}</th>")
     html.append("</tr></thead>")
 
     # Group rows by component for rowspan
     html.append("<tbody>")
+    rows = [header] + data_rows  # re-assemble for existing indexing
     i = 1
     while i < len(rows):
         row = rows[i]
         comp = row[0] if row else ""
 
         span = 1
-        while i + span < len(rows) and rows[i + span][0] == comp:
+        while (i + span < len(rows) and len(rows[i + span]) > 0
+               and rows[i + span][0] == comp):
             span += 1
 
         for s in range(span):
             html.append("<tr>")
             actual_row = rows[i + s]
-            for j, cell in enumerate(actual_row):
+            # Pad to num_cols
+            while len(actual_row) < num_cols:
+                actual_row.append("")
+            for j in range(num_cols):
+                cell = actual_row[j]
                 if j == 0:
                     if s == 0:
                         html.append(f'<td class="comp-cell" rowspan="{span}">{_esc(comp)}</td>')
                 elif j == 1:
                     html.append(f"<td>{_esc(cell)}</td>")
+                elif has_tendencia and j == tendencia_idx:
+                    bg, fg = _trend_color(cell)
+                    if bg:
+                        html.append(
+                            f'<td class="pct-cell" style="background-color:{bg};color:{fg};font-weight:bold">'
+                            f'{_esc(cell)}</td>'
+                        )
+                    else:
+                        html.append(f'<td style="text-align:center">{_esc(cell)}</td>')
                 else:
                     if "%" in cell:
                         bg, fg = _get_compliance_color(cell)
@@ -666,7 +728,7 @@ def _compliance_table_to_html(text: str) -> str:
                             f'<td class="pct-cell" style="background-color:{bg};color:{fg}">'
                             f'{_esc(cell)}</td>'
                         )
-                    elif cell.strip() == "-":
+                    elif cell.strip() in ("-", "—"):
                         html.append(f'<td style="text-align:center;font-style:italic">{_esc(cell)}</td>')
                     else:
                         html.append(f'<td style="text-align:center">{_esc(cell)}</td>')
@@ -674,18 +736,6 @@ def _compliance_table_to_html(text: str) -> str:
         i += span
 
     html.append("</tbody></table>")
-
-    # Legend as horizontal table row
-    html.append('<table class="legend-table"><tr>')
-    legend_items = [
-        (COLORS["green_bg"], COLORS["green_text"], "Excelente (≥98%)"),
-        (COLORS["yellow_bg"], COLORS["yellow_text"], "Muy Bueno (≥95% a <98%)"),
-        (COLORS["orange_bg"], COLORS["orange_text"], "Aceptable (≥85% a <95%)"),
-        (COLORS["red_bg"], COLORS["red_text"], "Op. de Mejora (<85%)"),
-    ]
-    for bg, fg, label in legend_items:
-        html.append(f'<td style="background-color:{bg};color:{fg}">{label}</td>')
-    html.append("</tr></table>")
 
     return "\n".join(html)
 
@@ -1108,10 +1158,6 @@ def generate_report_html(
     # Legacy: Score summary table (backward compatibility)
     elif report_sections.get("score_summary"):
         parts.append(_score_summary_to_html(report_sections["score_summary"]))
-
-    # Tendencias table (within resumen, only if present — omitted for first audit)
-    if report_sections.get("tendencias"):
-        parts.append(_tendencias_to_html(report_sections["tendencias"]))
 
     # ── 2. CUADRO DE CUMPLIMIENTO POR CRITERIO ──
     if report_sections.get("cumplimiento"):

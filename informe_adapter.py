@@ -68,10 +68,20 @@ def parse_compliance_rows(compliance_text: str, period_headers: list | None = No
     que espera add_compliance_table():
       [{"type": "header"|"subheader"|"data", "cols": [...]}, ...]
 
-    Detecta automáticamente los headers de período de la primera fila.
+    Formato esperado:
+      | COMPONENTE | CRITERIO | period1 | period2 | ... | TENDENCIA |
+
+    La última columna siempre es TENDENCIA. Detecta automáticamente los
+    headers de período de la primera fila.
     """
     lines = [l.strip() for l in compliance_text.strip().split("\n") if l.strip()]
-    table_lines = [l for l in lines if "|" in l and "---" not in l]
+    # Excluir líneas de leyenda que Claude pueda incluir por error
+    table_lines = [
+        l for l in lines
+        if "|" in l and "---" not in l
+        and not l.lower().lstrip("| ").startswith("leyenda")
+        and "leyenda:" not in l.lower()
+    ]
 
     if not table_lines:
         return []
@@ -90,21 +100,33 @@ def parse_compliance_rows(compliance_text: str, period_headers: list | None = No
     if not rows_raw:
         return []
 
-    # Determinar headers de período desde la primera fila
+    # Determinar headers desde la primera fila
     header_row = rows_raw[0]
-    # Columnas: [COMPONENTE, CRITERIO, period1, period2, ...]
+
+    # Detectar si la última columna es TENDENCIA
+    has_tendencia = False
+    if len(header_row) >= 3 and "TENDENCIA" in header_row[-1].upper():
+        has_tendencia = True
+
+    # Separar periodos y tendencia
+    if has_tendencia:
+        period_from_header = header_row[2:-1] if len(header_row) > 3 else []
+        tendencia_label = header_row[-1]
+    else:
+        period_from_header = header_row[2:] if len(header_row) > 2 else []
+        tendencia_label = "TENDENCIA"
+
     if period_headers is None:
-        period_headers = header_row[2:] if len(header_row) > 2 else []
+        period_headers = period_from_header
 
     num_period_cols = len(period_headers)
-    total_cols = 2 + num_period_cols  # COMPONENTE + CRITERIO + N períodos
+    # COMPONENTE + CRITERIO + N períodos + TENDENCIA
+    total_cols = 2 + num_period_cols + 1
 
-    # Ajustar col widths dinámicamente
     result = []
 
     # Header row
-    header_cols = ["COMPONENTE", "CRITERIO"] + period_headers
-    # Pad to total_cols
+    header_cols = ["COMPONENTE", "CRITERIO"] + period_headers + [tendencia_label or "TENDENCIA"]
     while len(header_cols) < total_cols:
         header_cols.append("")
     result.append({"type": "header", "cols": header_cols[:total_cols]})
@@ -115,9 +137,21 @@ def parse_compliance_rows(compliance_text: str, period_headers: list | None = No
         if not row:
             continue
 
+        # Skip filas de leyenda / total defensivamente
+        first_upper = (row[0] if row else "").upper()
+        if first_upper.startswith("LEYENDA") or first_upper.startswith("TOTAL"):
+            continue
+
         comp = row[0] if len(row) > 0 else ""
         criterio = row[1] if len(row) > 1 else ""
-        pct_values = row[2:] if len(row) > 2 else []
+
+        # Separar los períodos de la columna tendencia
+        if has_tendencia and len(row) >= 3:
+            pct_values = row[2:-1] if len(row) > 3 else []
+            tendencia_val = row[-1] if len(row) > 2 else ""
+        else:
+            pct_values = row[2:] if len(row) > 2 else []
+            tendencia_val = ""
 
         # Si hay un componente nuevo, agregar subheader
         if comp and comp.upper() != current_component.upper():
@@ -127,8 +161,11 @@ def parse_compliance_rows(compliance_text: str, period_headers: list | None = No
 
         # Data row
         data_cols = ["", criterio] + pct_values
-        while len(data_cols) < total_cols:
+        # Ajustar al número de columnas de período esperado
+        while len(data_cols) < 2 + num_period_cols:
             data_cols.append("")
+        data_cols = data_cols[:2 + num_period_cols]
+        data_cols.append(tendencia_val)
         result.append({"type": "data", "cols": data_cols[:total_cols]})
 
     return result

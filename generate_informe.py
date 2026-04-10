@@ -342,31 +342,105 @@ def add_bold_body_paragraph(doc: Document, segments: list):
 def add_compliance_table(doc: Document, rows_data: list):
     """
     Tabla de cumplimiento por criterio.
-    Col widths originales: [2000, 2200, 2000, 2000]  total=8200
+
+    Columnas dinámicas:
+      COMPONENTE | CRITERIO | [Período anterior] | [Período actual] | ... | TENDENCIA
+
+    La última columna siempre es TENDENCIA y se colorea según el valor
+    (Positiva=verde, Negativa=rojo, Mantenida=naranja). Las columnas de
+    porcentaje se colorean según el umbral de cumplimiento.
     """
-    COL_W = [2000, 2200, 2000, 2000]
-    table = doc.add_table(rows=len(rows_data), cols=4)
+    if not rows_data:
+        return
+
+    num_cols = len(rows_data[0].get("cols", []))
+    if num_cols < 4:
+        num_cols = 4
+
+    # Distribuir widths: COMPONENTE=2000, CRITERIO=2200, resto (periodos+tendencia)
+    total_width = 9360
+    fixed = 2000 + 2200
+    remaining_cols = num_cols - 2
+    per_col = (total_width - fixed) // remaining_cols if remaining_cols > 0 else 2000
+    COL_W = [2000, 2200] + [per_col] * remaining_cols
+
+    # Colores para columna de cumplimiento (%)
+    def _pct_fill(val_str):
+        import re as _re
+        m = _re.search(r"[\d.]+", val_str)
+        if not m:
+            return None, None
+        val = float(m.group())
+        if val >= 98:
+            return "C6EFCE", "006100"
+        elif val >= 95:
+            return "FFEB9C", "9C6500"
+        elif val >= 85:
+            return "FBE5D6", "BF4D00"
+        else:
+            return "FFC7CE", "9C0006"
+
+    # Colores para columna TENDENCIA
+    def _trend_fill(val_str):
+        upper = val_str.upper().strip()
+        if "POSITIV" in upper:
+            return "C6EFCE", "006100"
+        if "NEGATIV" in upper:
+            return "FFC7CE", "9C0006"
+        if "MANTEN" in upper or "SOSTEN" in upper:
+            return "FFEB9C", "9C6500"
+        return None, None
+
+    table = doc.add_table(rows=len(rows_data), cols=num_cols)
     _set_col_width(table, COL_W)
     data_row_index = 0
+    tendencia_col = num_cols - 1
+
     for i, row_info in enumerate(rows_data):
         row = table.rows[i]
         rtype = row_info.get("type", "data")
-        cols  = row_info.get("cols", ["", "", "", ""])
+        cols = row_info.get("cols", [""] * num_cols)
+        # Normalizar longitud
+        cols = list(cols) + [""] * (num_cols - len(cols))
+        cols = cols[:num_cols]
+
         if rtype == "header":
-            fill = DARK_BLUE; text_color = "FFFFFF"; bold = True; fsize = 9
+            base_fill = DARK_BLUE; base_text = "FFFFFF"; bold = True; fsize = 9
         elif rtype == "subheader":
-            fill = MED_BLUE;  text_color = "FFFFFF"; bold = True; fsize = 9
+            base_fill = MED_BLUE;  base_text = "FFFFFF"; bold = True; fsize = 9
         elif rtype == "total":
-            fill = MED_BLUE;  text_color = "FFFFFF"; bold = True; fsize = 9
+            base_fill = MED_BLUE;  base_text = "FFFFFF"; bold = True; fsize = 9
         else:   # data
-            fill = PALE_BLUE if data_row_index % 2 == 0 else WHITE
+            base_fill = PALE_BLUE if data_row_index % 2 == 0 else WHITE
             data_row_index += 1
-            text_color = "000000"; bold = False; fsize = 9
-        for j, (cell, val) in enumerate(zip(row.cells, cols)):
+            base_text = "000000"; bold = False; fsize = 9
+
+        for j in range(num_cols):
+            cell = row.cells[j]
+            val = cols[j]
+            fill = base_fill
+            text_color = base_text
+            cell_bold = bold
+
+            # Aplicar color condicional solo en filas de datos
+            if rtype == "data":
+                if j == tendencia_col:
+                    bg, fg = _trend_fill(val)
+                    if bg:
+                        fill = bg
+                        text_color = fg
+                        cell_bold = True
+                elif j >= 2 and "%" in val:
+                    bg, fg = _pct_fill(val)
+                    if bg:
+                        fill = bg
+                        text_color = fg
+                        cell_bold = True
+
             _style_cell(cell, fill, COL_W[j])
             align = (WD_ALIGN_PARAGRAPH.CENTER
                      if j >= 2 else WD_ALIGN_PARAGRAPH.LEFT)
-            _para_text(cell, val, bold=bold, font_size_pt=fsize,
+            _para_text(cell, val, bold=cell_bold, font_size_pt=fsize,
                        color_hex=text_color, align=align)
     doc.add_paragraph()
 
@@ -852,30 +926,11 @@ def generate_informe(data: dict) -> bytes:
     if cumpl_comp:
         _add_component_compliance_table(doc, cumpl_comp)
 
-    # Tendencias table
-    tendencias = data.get("tendencias", "")
-    if tendencias:
-        _add_tendencias_section(doc, tendencias)
-
     doc.add_paragraph()
 
     # ── Reporte de cumplimiento ──────────────────────────────────────────
     add_section_title(doc, "2. CUADRO DE CUMPLIMIENTO POR CRITERIO")
     add_compliance_table(doc, data.get("compliance_rows", []))
-
-    # Leyenda
-    leyenda = doc.add_paragraph()
-    leyenda.paragraph_format.space_after = Pt(6)
-    for text, bold in [
-        ("■ ", True), ("≥98% Óptimo  ", False),
-        ("■ ", True), ("≥95% a <98% Muy Bueno  ", False),
-        ("■ ", True), ("≥85% a <95% Aceptable  ", False),
-        ("■ ", True), ("<85% Oportunidad de mejora", False),
-    ]:
-        r = leyenda.add_run(text)
-        r.bold = bold
-        r.font.name = "Arial"
-        r.font.size = Pt(8)
 
     # ── Comentario de seguimiento ────────────────────────────────────────
     add_section_title(doc, "COMENTARIO DE SEGUIMIENTO Y COMPARACIÓN DE PERIODOS")
