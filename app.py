@@ -499,7 +499,7 @@ with tab1:
     )
 
     st.markdown("#### Médicos a Auditar")
-    st.caption("Agrega uno o más médicos. El código debe coincidir exactamente con el archivo de cumplimiento.")
+    st.caption("Agrega uno o más médicos. Se requiere al menos el código o el nombre del médico.")
 
     if "doctors" not in st.session_state:
         st.session_state.doctors = [{"name": "", "code": ""}]
@@ -537,8 +537,8 @@ with tab1:
 
     st.markdown("---")
 
-    # Validate inputs
-    valid_doctors = [d for d in st.session_state.doctors if d["name"].strip() and d["code"].strip()]
+    # Validate inputs — at least name OR code is required
+    valid_doctors = [d for d in st.session_state.doctors if d["name"].strip() or d["code"].strip()]
 
     # Determine if data is available
     using_gsheets = data_source == "📊 Google Sheets"
@@ -550,7 +550,7 @@ with tab1:
     if not api_key:
         st.warning("⚠️ Ingresa tu API Key de Anthropic en el panel lateral para continuar.")
     elif not valid_doctors:
-        st.info("ℹ️ Agrega al menos un médico con nombre y código.")
+        st.info("ℹ️ Agrega al menos un médico con su código o nombre.")
     elif not files_loaded:
         if using_gsheets:
             st.warning("⚠️ Conecta a Google Sheets primero usando el botón en el panel lateral.")
@@ -600,8 +600,10 @@ with tab1:
             for doctor in valid_doctors:
                 doc_name = doctor["name"].strip()
                 doc_code = doctor["code"].strip()
+                doc_display = doc_name or doc_code
+                doc_key = doc_code or doc_name.replace(" ", "_")
 
-                st.markdown(f"---\n#### Procesando: {doc_name} ({doc_code})")
+                st.markdown(f"---\n#### Procesando: {doc_display}" + (f" ({doc_code})" if doc_code and doc_name else ""))
                 progress = st.progress(0)
                 status_placeholder = st.empty()
                 report_placeholder = st.empty()
@@ -725,10 +727,11 @@ with tab1:
                         st.warning(f"PDF no disponible: {pdf_err}")
 
                     # Store in session
-                    safe_name = "".join(c if c.isalnum() or c in " _-" else "_" for c in doc_name)
-                    filename_docx = f"Reporte_Auditoria_{safe_name}_{doc_code}_{period_input[:10].replace(' ', '_')}.docx"
+                    safe_name = "".join(c if c.isalnum() or c in " _-" else "_" for c in doc_display)
+                    safe_code = doc_code or "SIN_COD"
+                    filename_docx = f"Reporte_Auditoria_{safe_name}_{safe_code}_{period_input[:10].replace(' ', '_')}.docx"
                     filename_pdf = filename_docx.replace(".docx", ".pdf")
-                    st.session_state.generated_reports[doc_code] = {
+                    st.session_state.generated_reports[doc_key] = {
                         "name": doc_name,
                         "code": doc_code,
                         "period": period_input,
@@ -740,28 +743,28 @@ with tab1:
                     }
 
                     progress.progress(100)
-                    status_placeholder.success(f"✅ Reporte generado exitosamente para {doc_name}")
+                    status_placeholder.success(f"✅ Reporte generado exitosamente para {doc_display}")
 
                     col_pdf, col_docx = st.columns(2)
                     if pdf_bytes:
                         col_pdf.download_button(
-                            label=f"⬇️ PDF - {doc_name}",
+                            label=f"⬇️ PDF - {doc_display}",
                             data=pdf_bytes,
                             file_name=filename_pdf,
                             mime="application/pdf",
-                            key=f"dl_pdf_{doc_code}",
+                            key=f"dl_pdf_{doc_key}",
                         )
                     col_docx.download_button(
-                        label=f"⬇️ DOCX - {doc_name}",
+                        label=f"⬇️ DOCX - {doc_display}",
                         data=docx_bytes,
                         file_name=filename_docx,
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        key=f"dl_{doc_code}",
+                        key=f"dl_{doc_key}",
                     )
 
                     # Upload to Google Drive if configured
                     if drive_folder_input.strip() and st.session_state.get("gcp_creds"):
-                        if st.button(f"☁️ Subir a Drive - {doc_name}", key=f"drive_{doc_code}"):
+                        if st.button(f"☁️ Subir a Drive - {doc_display}", key=f"drive_{doc_key}"):
                             try:
                                 import google_sheets_loader as gsl
                                 folder_id = gsl.extract_folder_id(drive_folder_input.strip())
@@ -778,7 +781,7 @@ with tab1:
 
                 except Exception as e:
                     progress.progress(0)
-                    status_placeholder.error(f"❌ Error generando reporte para {doc_name}: {str(e)}")
+                    status_placeholder.error(f"❌ Error generando reporte para {doc_display}: {str(e)}")
                     st.exception(e)
 
             # Offer ZIP download if multiple doctors

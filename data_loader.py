@@ -142,8 +142,8 @@ def find_doctor_global_compliance(
                         matched = df[mask]
                         break
 
-        # Search by name
-        if matched is None:
+        # Search by name (only if name is provided)
+        if matched is None and name_lower:
             for col in cols:
                 mask = df_str[col].str.lower().str.contains(
                     name_lower, na=False, regex=False
@@ -259,7 +259,7 @@ def find_doctor_compliance(
                         break
 
         # ── Strategy 2: Search by full name (exact substring) ──
-        if sheet_name not in results:
+        if sheet_name not in results and name_lower:
             for col in cols:
                 mask = df_str[col].str.lower().str.contains(
                     name_lower, na=False, regex=False
@@ -340,8 +340,8 @@ def find_doctor_consultations(
                         matched["_source_sheet"] = sheet_name
                         break
 
-        # Fallback: search by name
-        if matched is None:
+        # Fallback: search by name (only if name is provided)
+        if matched is None and name_lower:
             for col in cols:
                 mask = df_str[col].str.lower().str.contains(
                     name_lower, na=False, regex=False
