@@ -240,7 +240,7 @@ IMPORTANTE sobre el formato:
 - Tono: Ejecutivo, urgente pero profesional. Evita rodeos innecesarios.
 - Máximo 4 páginas por informe.
 - El número de informe sigue el formato: [CÓDIGO]-[ABREV_ESP]-[AÑO]-P[NÚM_PERÍODO] (ej: 000FV1-MG-2026-P003)
-  - Abreviaturas de especialidad: MG (Medicina General), MI (Medicina Interna), PD (Pediatría), GY (Ginecología), PS (Psicología), NU (Nutrición), SS (Servicio Social)
+  - Abreviaturas de especialidad: MG (Medicina General), MI (Medicina Interna), PD (Pediatría), GY (Ginecología), PS (Psicología), NU (Nutrición), SS (Servicio Social), ME (Clínica Metabólica)
 """
 
 
@@ -617,6 +617,7 @@ PALABRAS CLAVE DE ESPECIALIDAD (Filtro Columna "Especialidad"):
 - MEDGEN SS (Médico del Servicio Social)
 - PSICOLOGIA (Psicología)
 - NUTRICION (Nutrición)
+- MEDMETA (Clínica Metabólica)
 
 METODOLOGÍA DE ANÁLISIS (PARETO):
 1. Filtro Dual: Filtra la base de datos por la especialidad solicitada y el periodo indicado.
@@ -651,7 +652,7 @@ MÉDICOS EN RIESGO Y MEJOR EVALUADOS
 [Lista de médicos con menos hallazgos y mejor cumplimiento]
 
 REGLAS DE SEGURIDAD:
-- Si la especialidad indicada no se encuentra en el registro, responde: "La especialidad indicada no se encuentra en el registro. Por favor, elija entre: PEDIAT, GIYOBS, MEDINT, MEDGEN, MEDGEN SS, PSICOLOGIA o NUTRICION."
+- Si la especialidad indicada no se encuentra en el registro, responde: "La especialidad indicada no se encuentra en el registro. Por favor, elija entre: PEDIAT, GIYOBS, MEDINT, MEDGEN, MEDGEN SS, PSICOLOGIA, NUTRICION o MEDMETA."
 - Si el periodo solicitado no tiene datos registrados, indícalo claramente.
 - Usa SOLO los datos proporcionados. NO inventes datos.
 - Los hallazgos deben ser de las tipificaciones o causas encontradas en los datos.
@@ -666,6 +667,7 @@ SPECIALTY_KEYWORDS = {
     "Psicología (PSICO)": "PSICOLOGIA",
     "Nutrición (NUTRI)": "NUTRICION",
     "Ginecología (GYOBS)": "GIYOBS",
+    "Clínica Metabólica (MEDMETA)": "MEDMETA",
 }
 
 

@@ -476,6 +476,8 @@ def _get_specialty_abbrev(specialty: str) -> str:
         return "PS"
     if "nutri" in spec_lower:
         return "NU"
+    if "metab" in spec_lower or "medmeta" in spec_lower:
+        return "ME"
     return "MG"
 
 

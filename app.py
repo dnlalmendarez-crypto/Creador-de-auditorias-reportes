@@ -400,6 +400,7 @@ SPECIALTIES = [
     "Psicología (PSICO)",
     "Nutrición (NUTRI)",
     "Ginecología (GYOBS)",
+    "Clínica Metabólica (MEDMETA)",
 ]
 
 # ─── PERIOD GENERATION ───────────────────────────────────────────────────────
