@@ -87,6 +87,64 @@ def load_reporte_global(path: str) -> dict | None:
     return {"Sheet1": data}
 
 
+_NAME_COL_KEYWORDS = ["nombre", "name", "doctor", "médico", "medico"]
+_CODE_COL_KEYWORDS = ["cod", "code", "código"]
+
+
+def _is_code_col(col_name: str) -> bool:
+    return any(kw in col_name.lower() for kw in _CODE_COL_KEYWORDS)
+
+
+def _find_name_and_code(cols: list, first_row) -> tuple[str, str]:
+    """Extract name and code from a row by scanning column names."""
+    name = ""
+    code = ""
+    for col in cols:
+        col_lower = str(col).lower()
+        val = str(first_row[col]).strip()
+        if not val or val.lower() in ("nan", "none"):
+            continue
+        if not code and _is_code_col(col_lower):
+            code = val
+        elif not name and any(kw in col_lower for kw in _NAME_COL_KEYWORDS):
+            name = val
+    return name, code
+
+
+def extract_doctor_info_from_data(
+    compliance_results: dict | None = None,
+    consultations_df: "pd.DataFrame | None" = None,
+) -> tuple[str, str]:
+    """
+    Extract the doctor's name and code from matched data rows.
+    Returns (name, code) — empty strings if not found.
+    """
+    name = ""
+    code = ""
+
+    if compliance_results:
+        for _sheet, result in compliance_results.items():
+            rows = result.get("rows")
+            if rows is None or rows.empty:
+                continue
+            n, c = _find_name_and_code(list(rows.columns), rows.iloc[0])
+            if not name and n:
+                name = n
+            if not code and c:
+                code = c
+            if name and code:
+                break
+
+    if (not name or not code) and consultations_df is not None and not consultations_df.empty:
+        n, c = _find_name_and_code(list(consultations_df.columns), consultations_df.iloc[0])
+        if not name and n:
+            name = n
+        if not code and c:
+            code = c
+
+    return name, code
+
+
 def find_doctor_global_compliance(
     reporte_global: dict,
     doctor_name: str,

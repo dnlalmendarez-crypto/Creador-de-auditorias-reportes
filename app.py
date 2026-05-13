@@ -652,6 +652,19 @@ with tab1:
                 if not reporte_global_text:
                     reporte_global_text = "No se proporcionó Reporte Global de cumplimiento por componente."
 
+                # Auto-fill missing name or code from matched data
+                found_name, found_code = dl.extract_doctor_info_from_data(
+                    compliance_results=compliance_results,
+                    consultations_df=consultations_df,
+                )
+                if not doc_name and found_name:
+                    doc_name = found_name
+                    doc_display = doc_name if doc_name else doc_code
+                    status_placeholder.info(f"📋 Nombre encontrado en archivos: **{doc_name}**")
+                if not doc_code and found_code:
+                    doc_code = found_code
+                    doc_key = doc_code or doc_name.replace(" ", "_")
+
                 # Debug: show compliance data being sent to Claude
                 with st.expander("🔍 Datos de cumplimiento enviados a Claude", expanded=False):
                     if graficas_data:
