@@ -5,6 +5,7 @@ Sends structured data to Claude API and receives formatted analysis.
 
 import anthropic
 import os
+import time
 from typing import Optional
 
 
@@ -244,6 +245,35 @@ IMPORTANTE sobre el formato:
 """
 
 
+MAX_CONSULTATION_ROWS = 80
+MAX_INPUT_CHARS = 60_000
+
+
+def _truncate_table(text: str, max_rows: int) -> str:
+    """Limit a markdown table to max_rows data rows (header + separator kept)."""
+    if not text or "|" not in text:
+        return text
+    lines = text.split("\n")
+    header_lines = []
+    data_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if "---" in stripped and "|" in stripped:
+            header_lines.append(line)
+        elif not data_lines and not header_lines:
+            header_lines.append(line)
+        elif not data_lines and header_lines and len(header_lines) <= 2:
+            header_lines.append(line)
+        else:
+            data_lines.append(line)
+    if len(data_lines) <= max_rows:
+        return text
+    truncated = header_lines + data_lines[:max_rows]
+    return "\n".join(truncated)
+
+
 def build_analysis_prompt(
     doctor_name: str,
     doctor_code: str,
@@ -255,7 +285,14 @@ def build_analysis_prompt(
     previous_period_data: str = "",
     reporte_global_table: str = "",
 ) -> str:
-    """Build the full prompt to send to Claude for analysis."""
+    """Build the full prompt to send to Claude for analysis.
+
+    Applies automatic truncation to keep the total input under the
+    MAX_INPUT_CHARS threshold and avoid API errors.
+    """
+    # Truncate large tables
+    consultations_table = _truncate_table(consultations_table, MAX_CONSULTATION_ROWS)
+
     prompt = f"""# SOLICITUD DE REPORTE DE AUDITORÍA MÉDICA
 
 ## MÉDICO: {doctor_name}
@@ -323,7 +360,7 @@ def _build_request_params(
     user_prompt: str,
     thinking_enabled: bool = False,
     thinking_budget: int = 4000,
-    max_response_tokens: int = 16384,
+    max_response_tokens: int = 8192,
 ) -> dict:
     """Build the request params for a messages.create / messages.stream call.
 
@@ -373,6 +410,37 @@ def _extract_text_from_response(response) -> str:
         first = response.content[0]
         return getattr(first, "text", "") or ""
     return "".join(text_parts)
+
+
+def _call_with_retry(client, params: dict, stream_callback=None, max_retries: int = 3) -> str:
+    """Execute the API call with retry logic for transient errors (500, 529)."""
+    last_err = None
+    for attempt in range(max_retries + 1):
+        try:
+            if stream_callback:
+                full_text = ""
+                with client.messages.stream(**params) as stream:
+                    for text_chunk in stream.text_stream:
+                        full_text += text_chunk
+                        stream_callback(text_chunk)
+                return full_text
+            else:
+                response = client.messages.create(**params)
+                return _extract_text_from_response(response)
+        except anthropic.InternalServerError as e:
+            last_err = e
+            if attempt < max_retries:
+                wait = 2 ** (attempt + 1)
+                time.sleep(wait)
+                continue
+            raise
+        except anthropic.APIStatusError as e:
+            if e.status_code in (500, 502, 503, 529) and attempt < max_retries:
+                last_err = e
+                wait = 2 ** (attempt + 1)
+                time.sleep(wait)
+                continue
+            raise
 
 
 def analyze_with_claude(
@@ -430,21 +498,10 @@ def analyze_with_claude(
         user_prompt=prompt,
         thinking_enabled=thinking_enabled,
         thinking_budget=thinking_budget,
-        max_response_tokens=16384,
+        max_response_tokens=8192,
     )
 
-    if stream_callback:
-        full_text = ""
-        with client.messages.stream(**params) as stream:
-            # text_stream yields only text deltas (thinking deltas are
-            # handled internally by the SDK and excluded from this iterator).
-            for text_chunk in stream.text_stream:
-                full_text += text_chunk
-                stream_callback(text_chunk)
-        return full_text
-    else:
-        response = client.messages.create(**params)
-        return _extract_text_from_response(response)
+    return _call_with_retry(client, params, stream_callback)
 
 
 def parse_report_sections(report_text: str) -> dict:
@@ -726,16 +783,7 @@ GENERA EL REPORTE DE PARETO AHORA:
         user_prompt=prompt,
         thinking_enabled=thinking_enabled,
         thinking_budget=thinking_budget,
-        max_response_tokens=16384,
+        max_response_tokens=8192,
     )
 
-    if stream_callback:
-        full_text = ""
-        with client.messages.stream(**params) as stream:
-            for text_chunk in stream.text_stream:
-                full_text += text_chunk
-                stream_callback(text_chunk)
-        return full_text
-    else:
-        response = client.messages.create(**params)
-        return _extract_text_from_response(response)
+    return _call_with_retry(client, params, stream_callback)
